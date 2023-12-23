@@ -1,0 +1,3 @@
+(library
+ (name typesense)
+ (public_name typesense))
