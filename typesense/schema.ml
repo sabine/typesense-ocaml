@@ -55,42 +55,66 @@ let field_type_of_yojson = function
   | `String "auto" -> Auto
   | _ -> raise (Invalid_argument "failed to decode field_type")
 
+type create_field = {
+  name : string;
+  typesense_type : field_type;
+  optional : bool; [@default false] [@yojson_drop_default ( = )]
+  facet : bool; [@default false] [@yojson_drop_default ( = )]
+  index : bool; [@default true] [@yojson_drop_default ( = )]
+  locale : string; [@default ""] [@yojson_drop_default ( = )]
+      (*sort : bool;*)
+      (*infix : bool;*)
+}
+[@@deriving yojson_of]
+
+let create_field ?(facet = false) ?(optional = false) ?(index = true)
+    ?(locale = "") name typesense_type =
+  { name; typesense_type; facet; optional; index; locale }
+
+type create_schema = {
+  name : string;
+  fields : create_field list;
+  token_separators : string list; [@default []] [@yojson_drop_default ( = )]
+  symbols_to_index : string list; [@default []] [@yojson_drop_default ( = )]
+  default_sorting_field : string; [@default ""] [@yojson_drop_default ( = )]
+}
+[@@deriving yojson_of]
+
+(* updating schema fields *)
+
+type drop_schema_field = { name : string; drop : bool } [@@deriving yojson_of]
+type update_schema_field = Drop of string | Add of create_field
+
+let yojson_of_update_schema_field = function
+  | Drop name -> yojson_of_drop_schema_field { name; drop = true }
+  | Add field -> yojson_of_create_field field
+
+let schema ?(token_separators = []) ?(symbols_to_index = [])
+    ?(default_sorting_field = "") name fields =
+  { name; fields; token_separators; symbols_to_index; default_sorting_field }
+
+type update_schema = { fields : update_schema_field list }
+[@@deriving yojson_of]
+
+(* listing collection *)
+
 type field = {
   name : string;
   typesense_type : field_type;
-  facet : bool;
   optional : bool;
+  facet : bool;
   index : bool;
-  locale : string option;
+  locale : string;
   sort : bool;
-  drop : bool;
   infix : bool;
 }
-[@@deriving yojson]
+[@@deriving of_yojson]
 
-let field ?(facet = false) ?(optional = false) ?(index = true) ?(locale = None)
-    ?(sort = false) ?(drop = false) ?(infix = false) name type_ =
-  {
-    name;
-    typesense_type = type_;
-    facet;
-    optional;
-    index;
-    locale;
-    sort;
-    drop;
-    infix;
-  }
-
-type t = {
+type collection = {
   name : string;
   fields : field list;
-  token_separators : string list;
-  symbols_to_index : string list;
-  default_sorting_field : string option;
+  token_separators : string list; [@default []]
+  symbols_to_index : string list; [@default []]
+  default_sorting_field : string; [@default ""]
 }
-[@@deriving yojson]
-
-let schema ?(token_separators = []) ?(symbols_to_index = [])
-    ?(default_sorting_field = None) name fields =
-  { name; fields; token_separators; symbols_to_index; default_sorting_field }
+[@@deriving of_yojson]

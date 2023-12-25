@@ -1,6 +1,8 @@
 module Config = struct
-  let api_key = "abc"
-  let url = ""
+  let api_key =
+    try Sys.getenv "TYPESENSE_API_KEY" with _ -> "{TYPESENSE_API_KEY}"
+
+  let url = try Sys.getenv "TYPESENSE_HOST" with _ -> "{TYPESENSE_HOST}"
 end
 
 module Typesense = Typesense_api.Make (Config)
@@ -12,9 +14,23 @@ let print_req title r =
 
 let example_schema =
   Typesense.Schema.schema "companies"
-    Typesense.Schema.[ field "company_name" String ]
+    Typesense.Schema.[ create_field "company_name" String ]
 
 let () =
+  print_req "create collection" (Typesense.create_collection example_schema);
+
   print_req "list collections" (Typesense.collections ());
 
-  print_req "list collections" (Typesense.create_collection example_schema)
+  print_req "delete collection"
+    (Typesense.delete_collection example_schema.name);
+
+  print_req "update collection"
+    (Typesense.update_collection example_schema.name
+       Typesense.Schema.
+         {
+           fields =
+             [
+               Drop "company_category";
+               Add (create_field "company_category" StringArray ~facet:true);
+             ];
+         })

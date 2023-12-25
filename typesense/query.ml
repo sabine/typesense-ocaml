@@ -27,7 +27,7 @@ type 'filter query = {
   typo_tokens_threshold : int32;
 }
 
-let search (_schema : Schema.t) (query : 'filter query) =
+let search (_schema : Schema.collection) (query : 'filter query) =
   let _query_by =
     query.query_by_with_weights
     |> List.map (fun (field_name, _) -> field_name)
