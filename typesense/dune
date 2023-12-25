@@ -1,3 +1,6 @@
 (library
  (name typesense)
- (public_name typesense))
+ (public_name typesense)
+ (libraries yojson)
+ (preprocess
+  (pps ppx_yojson_conv)))

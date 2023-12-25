@@ -18,6 +18,14 @@ bug-reports: "https://github.com/sabine/typesense-ocaml/issues"
 depends: [
   "ocaml" {>= "4.08.0"}
   "dune" {>= "3.7"}
+  "yojson"
+  "ppx_yojson_conv"
+  "riot"
+  "blink"
+  "httpaf"
+  "cohttp"
+  "cohttp-eio"
+  "uri"
   "odoc" {with-doc}
 ]
 build: [
@@ -35,3 +43,8 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/sabine/typesense-ocaml.git"
+pin-depends: [
+  ["riot.0.0.7" "https://github.com/leostera/riot/releases/download/0.0.7/riot-0.0.7.tbz"]
+  ["blink.0.0.1" "https://github.com/leostera/blink/releases/download/0.0.1/blink-0.0.1.tbz"]
+  ["castore.0.0.1" "https://github.com/leostera/castore/releases/download/0.0.1/castore-0.0.1.tbz"]
+]

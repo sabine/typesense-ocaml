@@ -1,2 +1,5 @@
 (library
- (name typesense_api))
+ (name typesense_api)
+ (libraries cohttp_client yojson typesense)
+ (preprocess
+  (pps ppx_deriving.show)))

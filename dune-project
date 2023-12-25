@@ -30,5 +30,18 @@ to your Typesense server.")
  (depends 
  (ocaml (>= 4.08.0))
  dune
+ yojson
+ ppx_yojson_conv
+
+ ; riot_client
+ riot
+ blink
+ httpaf ; for blink
+
+ ; cohttp_client
+ cohttp
+ cohttp-eio
+
+ uri
  ))
  
