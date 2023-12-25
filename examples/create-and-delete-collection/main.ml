@@ -17,15 +17,15 @@ let example_schema =
     Typesense.Schema.[ create_field "company_name" String ]
 
 let () =
-  print_req "create collection" (Typesense.create_collection example_schema);
+  print_req "create collection" (Typesense.Collection.create example_schema);
 
-  print_req "list collections" (Typesense.collections ());
+  print_req "list collections" (Typesense.Collection.list ());
 
   print_req "delete collection"
-    (Typesense.delete_collection example_schema.name);
+    (Typesense.Collection.delete example_schema.name);
 
   print_req "update collection"
-    (Typesense.update_collection example_schema.name
+    (Typesense.Collection.update example_schema.name
        Typesense.Schema.
          {
            fields =
