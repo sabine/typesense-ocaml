@@ -57,13 +57,11 @@ let field_type_of_yojson = function
 
 type create_field = {
   name : string;
-  typesense_type : field_type;
+  typesense_type : field_type; [@key "type"]
   optional : bool; [@default false] [@yojson_drop_default ( = )]
   facet : bool; [@default false] [@yojson_drop_default ( = )]
   index : bool; [@default true] [@yojson_drop_default ( = )]
   locale : string; [@default ""] [@yojson_drop_default ( = )]
-      (*sort : bool;*)
-      (*infix : bool;*)
 }
 [@@deriving yojson_of]
 
@@ -96,11 +94,13 @@ let schema ?(token_separators = []) ?(symbols_to_index = [])
 type update_schema = { fields : update_schema_field list }
 [@@deriving yojson_of]
 
+let update_schema fields = { fields }
+
 (* listing collection *)
 
 type field = {
   name : string;
-  typesense_type : field_type;
+  typesense_type : field_type; [@key "type"]
   optional : bool;
   facet : bool;
   index : bool;

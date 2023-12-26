@@ -1,0 +1,3 @@
+(library
+ (name blink_client)
+ (libraries riot blink uri))

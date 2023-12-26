@@ -16,4 +16,4 @@ let get ?(headers = []) ?(params = []) ~env ~host path =
   | `OK ->
       let body = read_all_to_string body in
       Ok body
-  | _ -> failwith "unimplemented"
+  | _ -> Error (`Msg "failed to connect")
