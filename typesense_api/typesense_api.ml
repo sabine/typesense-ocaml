@@ -231,7 +231,7 @@ struct
   module Search =
     struct
 
-    [@ocamlformat "disable"]
+   [@ocamlformat "disable"]
     let search_params
       (* query parameters*)
       ~q
@@ -378,62 +378,62 @@ struct
     type multi_search_request = {
       q: string;
       query_by: string;
-      prefix: string;
-      infix: string;
-      pre_segmented_query: bool;
-      preset: string;
+      prefix: string option; [@default None] [@yojson_drop_default ( = )]
+      infix: string option; [@default None] [@yojson_drop_default ( = )]
+      pre_segmented_query: bool option; [@default None] [@yojson_drop_default ( = )]
+      preset: string option; [@default None] [@yojson_drop_default ( = )]
       (* filter parameters *)
-      filter_by: string;
+      filter_by: string option; [@default None] [@yojson_drop_default ( = )]
       (* ranking and sorting parameters*)
-      query_by_weights: string;
-      text_match_type: string;
-      sort_by: string;
-      prioritize_exact_match: bool;
-      prioritize_token_position: bool;
-      pinned_hits: string;
-      hidden_hits: string;
-      enable_overrides: bool;
+      query_by_weights: string option; [@default None] [@yojson_drop_default ( = )]
+      text_match_type: string option; [@default None] [@yojson_drop_default ( = )]
+      sort_by: string option; [@default None] [@yojson_drop_default ( = )]
+      prioritize_exact_match: bool option; [@default None] [@yojson_drop_default ( = )]
+      prioritize_token_position: bool option; [@default None] [@yojson_drop_default ( = )]
+      pinned_hits: string option; [@default None] [@yojson_drop_default ( = )]
+      hidden_hits: string option; [@default None] [@yojson_drop_default ( = )]
+      enable_overrides: bool option; [@default None] [@yojson_drop_default ( = )]
       (* pagination parameters *)
-      page: int;
-      per_page: int;
-      offset: int;
-      limit: int;
+      page: int option; [@default None] [@yojson_drop_default ( = )]
+      per_page: int option; [@default None] [@yojson_drop_default ( = )]
+      offset: int option; [@default None] [@yojson_drop_default ( = )]
+      limit: int option; [@default None] [@yojson_drop_default ( = )]
       (* faceting parameters *)
-      facet_by: string;
-      max_facet_values: int;
-      facet_query: string;
-      facet_query_num_typos: int;
+      facet_by: string option; [@default None] [@yojson_drop_default ( = )]
+      max_facet_values: int option; [@default None] [@yojson_drop_default ( = )]
+      facet_query: string option; [@default None] [@yojson_drop_default ( = )]
+      facet_query_num_typos: int option; [@default None] [@yojson_drop_default ( = )]
       (* grouping parameters *)
-      group_by: string;
-      group_limit: int;
+      group_by: string option; [@default None] [@yojson_drop_default ( = )]
+      group_limit: int option; [@default None] [@yojson_drop_default ( = )]
       (* results parameters *)
-      include_fields: string;
-      exclude_fields: string;
-      highlight_fields: string;
-      highlight_full_fields: string;
-      highlight_affix_num_tokens: int;
-      highlight_start_tag: string;
-      highlight_end_tag: string;
-      enable_highlight_v1: bool;
-      snippet_threshold: int;
-      limit_hits: int;
-      search_cutoff_ms: int;
-      max_candidates: int;
-      exhaustive_search: bool;
+      include_fields: string option; [@default None] [@yojson_drop_default ( = )]
+      exclude_fields: string option; [@default None] [@yojson_drop_default ( = )]
+      highlight_fields: string option; [@default None] [@yojson_drop_default ( = )]
+      highlight_full_fields: string option; [@default None] [@yojson_drop_default ( = )]
+      highlight_affix_num_tokens: int option; [@default None] [@yojson_drop_default ( = )]
+      highlight_start_tag: string option; [@default None] [@yojson_drop_default ( = )]
+      highlight_end_tag: string option; [@default None] [@yojson_drop_default ( = )]
+      enable_highlight_v1: bool option; [@default None] [@yojson_drop_default ( = )]
+      snippet_threshold: int option; [@default None] [@yojson_drop_default ( = )]
+      limit_hits: int option; [@default None] [@yojson_drop_default ( = )]
+      search_cutoff_ms: int option; [@default None] [@yojson_drop_default ( = )]
+      max_candidates: int option; [@default None] [@yojson_drop_default ( = )]
+      exhaustive_search: bool option; [@default None] [@yojson_drop_default ( = )]
       (* typo-tolerance parameters *)
-      num_typos: int;
-      min_len_1typo: int;
-      min_len_2typo: int;
-      split_join_tokens: string;
-      typo_tokens_threshold: int;
-      drop_tokens_threshold: int;
+      num_typos: int option; [@default None] [@yojson_drop_default ( = )]
+      min_len_1typo: int option; [@default None] [@yojson_drop_default ( = )]
+      min_len_2typo: int option; [@default None] [@yojson_drop_default ( = )]
+      split_join_tokens: string option; [@default None] [@yojson_drop_default ( = )]
+      typo_tokens_threshold: int option; [@default None] [@yojson_drop_default ( = )]
+      drop_tokens_threshold: int option; [@default None] [@yojson_drop_default ( = )]
       (* caching parameters *)
-      use_cache: bool;
-      cache_ttl: int;
+      use_cache: bool option; [@default None] [@yojson_drop_default ( = )]
+      cache_ttl: int option; [@default None] [@yojson_drop_default ( = )]
       (* vector queries*)
-      vector_query: string;
-      remote_embedding_timeout_ms: int;
-      remote_embedding_num_tries: int;
+      vector_query: string option; [@default None] [@yojson_drop_default ( = )]
+      remote_embedding_timeout_ms: int option; [@default None] [@yojson_drop_default ( = )]
+      remote_embedding_num_tries: int option; [@default None] [@yojson_drop_default ( = )]
     } [@@deriving yojson_of]
 
     let multi_search ~search_requests ~common_search_params collection_name =
