@@ -6,6 +6,20 @@ struct
   module Schema = Typesense.Schema
   module Config = Config
 
+  module Params = struct
+    let add_if_string name value =
+      if String.length value > 0 then [ (name, [ value ]) ] else []
+
+    let add_if_bool name value =
+      match value with
+      | None -> []
+      | Some true -> [ (name, [ "true" ]) ]
+      | Some false -> [ (name, [ "false" ]) ]
+
+    let add_if_int name value =
+      match value with None -> [] | Some i -> [ (name, [ string_of_int i ]) ]
+  end
+
   module RequestDescriptor = struct
     let headers =
       [
@@ -134,25 +148,29 @@ struct
       | Drop -> "drop"
       | Reject -> "reject"
 
-    let add ?(dirty_values = None) collection_name document =
+    let add ?dirty_values ?remote_embedding_timeout_ms
+        ?remote_embedding_num_tries collection_name document =
       let body = document in
       let path =
         "/collections/" ^ Uri.pct_encode collection_name ^ "/documents"
       in
       let params =
-        match dirty_values with
-        | None -> []
-        | Some v -> [ ("dirty_values", [ string_of_dirty_values v ]) ]
+        let open Params in
+        add_if_int "dirty_values" dirty_values
+        @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
+        @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
       in
       RequestDescriptor.post ~params ~body path
 
-    let _import ?(batch_size = None) collection_name documents action =
+    let _import ?(batch_size = None) ?remote_embedding_timeout_ms
+        ?remote_embedding_num_tries collection_name documents action =
       let body = String.concat "\n" documents in
-      let params = [ ("action", [ action ]) ] in
       let params =
-        match batch_size with
-        | None -> params
-        | Some s -> ("batch_size", [ string_of_int s ]) :: params
+        let open Params in
+        [ ("action", [ action ]) ]
+        @ add_if_int "batch_size" batch_size
+        @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
+        @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
       in
       let path =
         "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/import"
@@ -293,20 +311,7 @@ struct
         ?remote_embedding_timeout_ms
         ?remote_embedding_num_tries
         () =
-        let add_if_string name value =
-          if String.length prefix > 0 then [(name, [value])] else []
-        in
-        let add_if_bool name value =
-          match value with
-          | None -> []
-          | Some true -> [(name, ["true"])]
-          | Some false -> [(name, ["false"])]
-        in
-        let add_if_int name value =
-          match value with
-          | None -> []
-          | Some i -> [(name, [string_of_int i])]
-        in
+        let open Params in
         [("q", [q]); ("query_by", [query_by])]
         @ add_if_string "prefix" prefix
         @ add_if_string "infix" infix
@@ -452,7 +457,10 @@ struct
         remote_embedding_num_tries : int option;
             [@default None] [@yojson_drop_default ( = )]
         (* multi search parameters *)
-        x_typesense_api_key : string; [@key "x-typesense-api-key"] [@default ""] [@yojson_drop_default ( = )]
+        x_typesense_api_key : string;
+            [@key "x-typesense-api-key"]
+            [@default ""]
+            [@yojson_drop_default ( = )]
       }
       [@@deriving yojson_of]
 
@@ -575,8 +583,8 @@ struct
     end
 
     type multi_search_request = {
-      searches: MultiSearchRequest.t;
-      limit_multi_searches: bool; [@default false] [@yojson_drop_default ( = )]
+      searches : MultiSearchRequest.t;
+      limit_multi_searches : bool; [@default false] [@yojson_drop_default ( = )]
     }
 
     let multi_search ~search_requests ~common_search_params collection_name =
@@ -591,6 +599,6 @@ struct
       in
       RequestDescriptor.post ~params:common_search_params ~body path
 
-      (* TODO: add calls that allow to bypass the typed params / body *)
+    (* TODO: add calls that allow to bypass the typed params / body *)
   end
 end
