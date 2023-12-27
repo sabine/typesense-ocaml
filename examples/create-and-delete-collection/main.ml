@@ -10,17 +10,18 @@ end
 module Typesense = Typesense_api.Make (Config)
 
 let make_request = function
-  | Typesense.Get { host; path; headers; params } ->
+  | Typesense.RequestDescriptor.Get { host; path; headers; params } ->
       Blink_client.get ~headers ~params ~host path
   | Post { host; path; headers; params; body } ->
       Blink_client.post ~headers ~params ~host ~body path
-  | Delete { host; path; headers } -> Blink_client.delete ~headers ~host path
-  | Patch { host; path; headers; body } ->
-      Blink_client.patch ~headers ~host ~body path
+  | Delete { host; path; headers; params } ->
+      Blink_client.delete ~headers ~params ~host path
+  | Patch { host; path; headers; params; body } ->
+      Blink_client.patch ~headers ~params ~host ~body path
 
 let print_req title r =
   print_endline title;
-  print_endline @@ Typesense.show_request r;
+  print_endline @@ Typesense.RequestDescriptor.show_request r;
   print_endline "";
   let response = make_request r in
   match response with
@@ -28,10 +29,14 @@ let print_req title r =
   | Error (`Msg m) -> print_endline m
 
 let example_schema =
-  Typesense.Schema.(schema "companies"
-    [ create_field "company_name" String;
-    create_field "num_employees" Int32;
-    create_field "country" String ~facet:true ] ~default_sorting_field:"num_employees")
+  Typesense.Schema.(
+    schema "companies"
+      [
+        create_field "company_name" String;
+        create_field "num_employees" Int32;
+        create_field "country" String ~facet:true;
+      ]
+      ~default_sorting_field:"num_employees")
 
 let ( let* ) = Result.bind
 
