@@ -452,7 +452,7 @@ struct
         remote_embedding_num_tries : int option;
             [@default None] [@yojson_drop_default ( = )]
         (* multi search parameters *)
-        x_typesense_api_key : string; [@default ""] [@yojson_drop_default ( = )]
+        x_typesense_api_key : string; [@key "x-typesense-api-key"] [@default ""] [@yojson_drop_default ( = )]
       }
       [@@deriving yojson_of]
 
