@@ -228,224 +228,364 @@ struct
       RequestDescriptor.get ~params path
   end
 
-  module Search =
-    struct
+  module Search = struct
+    module SearchParams =
+      struct
+      [@ocamlformat "disable"]
+      let search_params
+        (* query parameters*)
+        ~q
+        ~query_by
+        ?(prefix="")
+        ?(infix="")
+        ?pre_segmented_query
+        ?(preset="")
+        (* filter parameters *)
+        ?(filter_by = "")
+        (* ranking and sorting parameters*)
+        ?(query_by_weights="")
+        ?(text_match_type="")
+        ?(sort_by="")
+        ?prioritize_exact_match
+        ?prioritize_token_position
+        ?(pinned_hits="")
+        ?(hidden_hits="")
+        ?enable_overrides
+        (* pagination parameters *)
+        ?page
+        ?per_page
+        ?offset
+        ?limit
+        (* faceting parameters *)
+        ?(facet_by="")
+        ?max_facet_values
+        ?(facet_query="")
+        ?facet_query_num_typos
+        (* grouping parameters *)
+        ?(group_by="")
+        ?group_limit
+        (* results parameters *)
+        ?(include_fields="")
+        ?(exclude_fields="")
+        ?(highlight_fields="")
+        ?(highlight_full_fields="")
+        ?highlight_affix_num_tokens
+        ?(highlight_start_tag="")
+        ?(highlight_end_tag="")
+        ?enable_highlight_v1
+        ?snippet_threshold
+        ?limit_hits
+        ?search_cutoff_ms
+        ?max_candidates
+        ?exhaustive_search
+        (* typo-tolerance parameters *)
+        ?num_typos
+        ?min_len_1typo
+        ?min_len_2typo
+        ?(split_join_tokens="")
+        ?typo_tokens_threshold
+        ?drop_tokens_threshold
+        (* caching parameters *)
+        ?use_cache
+        ?cache_ttl
+        (* vector queries *)
+        ?(vector_query="")
+        ?remote_embedding_timeout_ms
+        ?remote_embedding_num_tries
+        () =
+        let add_if_string name value =
+          if String.length prefix > 0 then [(name, [value])] else []
+        in
+        let add_if_bool name value =
+          match value with
+          | None -> []
+          | Some true -> [(name, ["true"])]
+          | Some false -> [(name, ["false"])]
+        in
+        let add_if_int name value =
+          match value with
+          | None -> []
+          | Some i -> [(name, [string_of_int i])]
+        in
+        [("q", [q]); ("query_by", [query_by])]
+        @ add_if_string "prefix" prefix
+        @ add_if_string "infix" infix
+        @ add_if_bool "pre_segmented_query" pre_segmented_query
+        @ add_if_string "preset" preset
+        (* filter parameters *)
+        @ add_if_string "filter_by" filter_by
+        (* ranking and sorting parameters*)
+        @ add_if_string "query_by_weights" query_by_weights
+        @ add_if_string "text_match_type" text_match_type
+        @ add_if_string "sort_by" sort_by
+        @ add_if_bool "prioritize_exact_match" prioritize_exact_match
+        @ add_if_bool "prioritize_token_position" prioritize_token_position
+        @ add_if_string "pinned_hits" pinned_hits
+        @ add_if_string "hidden_hits" hidden_hits
+        @ add_if_bool "enable_overrides" enable_overrides
+        (* pagination parameters *)
+        @ add_if_int "page" page
+        @ add_if_int "per_page" per_page
+        @ add_if_int "offset" offset
+        @ add_if_int "limit" limit
+        (* faceting parameters *)
+        @ add_if_string "facet_by" facet_by
+        @ add_if_int "max_facet_values" max_facet_values
+        @ add_if_string "facet_query" facet_query
+        @ add_if_int "facet_query_num_typos" facet_query_num_typos
+        (* grouping parameters *)
+        @ add_if_string "group_by" group_by
+        @ add_if_int "group_limit" group_limit
+        (* results parameters *)
+        @ add_if_string "include_fields" include_fields
+        @ add_if_string "exclude_fields" exclude_fields
+        @ add_if_string "highlight_fields" highlight_fields
+        @ add_if_string "highlight_full_fields" highlight_full_fields
+        @ add_if_int "highlight_affix_num_tokens" highlight_affix_num_tokens
+        @ add_if_string "highlight_start_tag" highlight_start_tag
+        @ add_if_string "highlight_end_tag" highlight_end_tag
+        @ add_if_bool "enable_highlight_v1" enable_highlight_v1
+        @ add_if_int "snippet_threshold" snippet_threshold
+        @ add_if_int "limit_hits" limit_hits
+        @ add_if_int "search_cutoff_ms" search_cutoff_ms
+        @ add_if_int "max_candidates" max_candidates
+        @ add_if_bool "exhaustive_search" exhaustive_search
+        (* typo-tolerance parameters *)
+        @ add_if_int "num_typos" num_typos
+        @ add_if_int "min_len_1typo" min_len_1typo
+        @ add_if_int "min_len_2typo" min_len_2typo
+        @ add_if_string "split_join_tokens" split_join_tokens
+        @ add_if_int "typo_tokens_threshold" typo_tokens_threshold
+        @ add_if_int "drop_tokens_threshold" drop_tokens_threshold
+        (* caching parameters *)
+        @ add_if_bool "use_cache" use_cache
+        @ add_if_int "cache_ttl" cache_ttl
+        (* vector queries*)
+        @ add_if_string "vector_query" vector_query
+        @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
+        @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
+    end
 
-   [@ocamlformat "disable"]
-    let search_params
-      (* query parameters*)
-      ~q
-      ~query_by
-      ?(prefix="")
-      ?(infix="")
-      ?pre_segmented_query
-      ?(preset="")
-      (* filter parameters *)
-      ?(filter_by = "")
-      (* ranking and sorting parameters*)
-      ?(query_by_weights="")
-      ?(text_match_type="")
-      ?(sort_by="")
-      ?prioritize_exact_match
-      ?prioritize_token_position
-      ?(pinned_hits="")
-      ?(hidden_hits="")
-      ?enable_overrides
-      (* pagination parameters *)
-      ?page
-      ?per_page
-      ?offset
-      ?limit
-      (* faceting parameters *)
-      ?(facet_by="")
-      ?max_facet_values
-      ?(facet_query="")
-      ?facet_query_num_typos
-      (* grouping parameters *)
-      ?(group_by="")
-      ?group_limit
-      (* results parameters *)
-      ?(include_fields="")
-      ?(exclude_fields="")
-      ?(highlight_fields="")
-      ?(highlight_full_fields="")
-      ?highlight_affix_num_tokens
-      ?(highlight_start_tag="")
-      ?(highlight_end_tag="")
-      ?enable_highlight_v1
-      ?snippet_threshold
-      ?limit_hits
-      ?search_cutoff_ms
-      ?max_candidates
-      ?exhaustive_search
-      (* typo-tolerance parameters *)
-      ?num_typos
-      ?min_len_1typo
-      ?min_len_2typo
-      ?(split_join_tokens="")
-      ?typo_tokens_threshold
-      ?drop_tokens_threshold
-      (* caching parameters *)
-      ?use_cache
-      ?cache_ttl
-      (* vector queries *)
-      ?(vector_query="")
-      ?remote_embedding_timeout_ms
-      ?remote_embedding_num_tries
-      () =
-      let add_if_string name value =
-        if String.length prefix > 0 then [(name, [value])] else []
-      in
-      let add_if_bool name value =
-        match value with
-        | None -> []
-        | Some true -> [(name, ["true"])]
-        | Some false -> [(name, ["false"])]
-      in
-      let add_if_int name value =
-        match value with
-        | None -> []
-        | Some i -> [(name, [string_of_int i])]
-      in
-      [("q", [q]); ("query_by", [query_by])]
-      @ add_if_string "prefix" prefix
-      @ add_if_string "infix" infix
-      @ add_if_bool "pre_segmented_query" pre_segmented_query
-      @ add_if_string "preset" preset
-      (* filter parameters *)
-      @ add_if_string "filter_by" filter_by
-      (* ranking and sorting parameters*)
-      @ add_if_string "query_by_weights" query_by_weights
-      @ add_if_string "text_match_type" text_match_type
-      @ add_if_string "sort_by" sort_by
-      @ add_if_bool "prioritize_exact_match" prioritize_exact_match
-      @ add_if_bool "prioritize_token_position" prioritize_token_position
-      @ add_if_string "pinned_hits" pinned_hits
-      @ add_if_string "hidden_hits" hidden_hits
-      @ add_if_bool "enable_overrides" enable_overrides
-      (* pagination parameters *)
-      @ add_if_int "page" page
-      @ add_if_int "per_page" per_page
-      @ add_if_int "offset" offset
-      @ add_if_int "limit" limit
-      (* faceting parameters *)
-      @ add_if_string "facet_by" facet_by
-      @ add_if_int "max_facet_values" max_facet_values
-      @ add_if_string "facet_query" facet_query
-      @ add_if_int "facet_query_num_typos" facet_query_num_typos
-      (* grouping parameters *)
-      @ add_if_string "group_by" group_by
-      @ add_if_int "group_limit" group_limit
-      (* results parameters *)
-      @ add_if_string "include_fields" include_fields
-      @ add_if_string "exclude_fields" exclude_fields
-      @ add_if_string "highlight_fields" highlight_fields
-      @ add_if_string "highlight_full_fields" highlight_full_fields
-      @ add_if_int "highlight_affix_num_tokens" highlight_affix_num_tokens
-      @ add_if_string "highlight_start_tag" highlight_start_tag
-      @ add_if_string "highlight_end_tag" highlight_end_tag
-      @ add_if_bool "enable_highlight_v1" enable_highlight_v1
-      @ add_if_int "snippet_threshold" snippet_threshold
-      @ add_if_int "limit_hits" limit_hits
-      @ add_if_int "search_cutoff_ms" search_cutoff_ms
-      @ add_if_int "max_candidates" max_candidates
-      @ add_if_bool "exhaustive_search" exhaustive_search
-      (* typo-tolerance parameters *)
-      @ add_if_int "num_typos" num_typos
-      @ add_if_int "min_len_1typo" min_len_1typo
-      @ add_if_int "min_len_2typo" min_len_2typo
-      @ add_if_string "split_join_tokens" split_join_tokens
-      @ add_if_int "typo_tokens_threshold" typo_tokens_threshold
-      @ add_if_int "drop_tokens_threshold" drop_tokens_threshold
-      (* caching parameters *)
-      @ add_if_bool "use_cache" use_cache
-      @ add_if_int "cache_ttl" cache_ttl
-      (* vector queries*)
-      @ add_if_string "vector_query" vector_query
-      @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
-      @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
-
-    let search
-      ~search_params
-      collection_name =
+    let search ~search_params collection_name =
       let path =
         "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/search"
       in
-        RequestDescriptor.get ~params:search_params path
+      RequestDescriptor.get ~params:search_params path
 
-    open Ppx_yojson_conv_lib.Yojson_conv
+    module MultiSearchRequest = struct
+      open Ppx_yojson_conv_lib.Yojson_conv
 
-    type multi_search_request = {
-      q: string;
-      query_by: string;
-      prefix: string option; [@default None] [@yojson_drop_default ( = )]
-      infix: string option; [@default None] [@yojson_drop_default ( = )]
-      pre_segmented_query: bool option; [@default None] [@yojson_drop_default ( = )]
-      preset: string option; [@default None] [@yojson_drop_default ( = )]
-      (* filter parameters *)
-      filter_by: string option; [@default None] [@yojson_drop_default ( = )]
-      (* ranking and sorting parameters*)
-      query_by_weights: string option; [@default None] [@yojson_drop_default ( = )]
-      text_match_type: string option; [@default None] [@yojson_drop_default ( = )]
-      sort_by: string option; [@default None] [@yojson_drop_default ( = )]
-      prioritize_exact_match: bool option; [@default None] [@yojson_drop_default ( = )]
-      prioritize_token_position: bool option; [@default None] [@yojson_drop_default ( = )]
-      pinned_hits: string option; [@default None] [@yojson_drop_default ( = )]
-      hidden_hits: string option; [@default None] [@yojson_drop_default ( = )]
-      enable_overrides: bool option; [@default None] [@yojson_drop_default ( = )]
-      (* pagination parameters *)
-      page: int option; [@default None] [@yojson_drop_default ( = )]
-      per_page: int option; [@default None] [@yojson_drop_default ( = )]
-      offset: int option; [@default None] [@yojson_drop_default ( = )]
-      limit: int option; [@default None] [@yojson_drop_default ( = )]
-      (* faceting parameters *)
-      facet_by: string option; [@default None] [@yojson_drop_default ( = )]
-      max_facet_values: int option; [@default None] [@yojson_drop_default ( = )]
-      facet_query: string option; [@default None] [@yojson_drop_default ( = )]
-      facet_query_num_typos: int option; [@default None] [@yojson_drop_default ( = )]
-      (* grouping parameters *)
-      group_by: string option; [@default None] [@yojson_drop_default ( = )]
-      group_limit: int option; [@default None] [@yojson_drop_default ( = )]
-      (* results parameters *)
-      include_fields: string option; [@default None] [@yojson_drop_default ( = )]
-      exclude_fields: string option; [@default None] [@yojson_drop_default ( = )]
-      highlight_fields: string option; [@default None] [@yojson_drop_default ( = )]
-      highlight_full_fields: string option; [@default None] [@yojson_drop_default ( = )]
-      highlight_affix_num_tokens: int option; [@default None] [@yojson_drop_default ( = )]
-      highlight_start_tag: string option; [@default None] [@yojson_drop_default ( = )]
-      highlight_end_tag: string option; [@default None] [@yojson_drop_default ( = )]
-      enable_highlight_v1: bool option; [@default None] [@yojson_drop_default ( = )]
-      snippet_threshold: int option; [@default None] [@yojson_drop_default ( = )]
-      limit_hits: int option; [@default None] [@yojson_drop_default ( = )]
-      search_cutoff_ms: int option; [@default None] [@yojson_drop_default ( = )]
-      max_candidates: int option; [@default None] [@yojson_drop_default ( = )]
-      exhaustive_search: bool option; [@default None] [@yojson_drop_default ( = )]
-      (* typo-tolerance parameters *)
-      num_typos: int option; [@default None] [@yojson_drop_default ( = )]
-      min_len_1typo: int option; [@default None] [@yojson_drop_default ( = )]
-      min_len_2typo: int option; [@default None] [@yojson_drop_default ( = )]
-      split_join_tokens: string option; [@default None] [@yojson_drop_default ( = )]
-      typo_tokens_threshold: int option; [@default None] [@yojson_drop_default ( = )]
-      drop_tokens_threshold: int option; [@default None] [@yojson_drop_default ( = )]
-      (* caching parameters *)
-      use_cache: bool option; [@default None] [@yojson_drop_default ( = )]
-      cache_ttl: int option; [@default None] [@yojson_drop_default ( = )]
-      (* vector queries*)
-      vector_query: string option; [@default None] [@yojson_drop_default ( = )]
-      remote_embedding_timeout_ms: int option; [@default None] [@yojson_drop_default ( = )]
-      remote_embedding_num_tries: int option; [@default None] [@yojson_drop_default ( = )]
-    } [@@deriving yojson_of]
+      type t = {
+        q : string;
+        query_by : string;
+        prefix : string; [@default ""] [@yojson_drop_default ( = )]
+        infix : string; [@default ""] [@yojson_drop_default ( = )]
+        pre_segmented_query : bool option;
+            [@default None] [@yojson_drop_default ( = )]
+        preset : string; [@default ""] [@yojson_drop_default ( = )]
+        (* filter parameters *)
+        filter_by : string; [@default ""] [@yojson_drop_default ( = )]
+        (* ranking and sorting parameters*)
+        query_by_weights : string; [@default ""] [@yojson_drop_default ( = )]
+        text_match_type : string; [@default ""] [@yojson_drop_default ( = )]
+        sort_by : string; [@default ""] [@yojson_drop_default ( = )]
+        prioritize_exact_match : bool option;
+            [@default None] [@yojson_drop_default ( = )]
+        prioritize_token_position : bool option;
+            [@default None] [@yojson_drop_default ( = )]
+        pinned_hits : string; [@default ""] [@yojson_drop_default ( = )]
+        hidden_hits : string; [@default ""] [@yojson_drop_default ( = )]
+        enable_overrides : bool option;
+            [@default None] [@yojson_drop_default ( = )]
+        (* pagination parameters *)
+        page : int option; [@default None] [@yojson_drop_default ( = )]
+        per_page : int option; [@default None] [@yojson_drop_default ( = )]
+        offset : int option; [@default None] [@yojson_drop_default ( = )]
+        limit : int option; [@default None] [@yojson_drop_default ( = )]
+        (* faceting parameters *)
+        facet_by : string; [@default ""] [@yojson_drop_default ( = )]
+        max_facet_values : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        facet_query : string; [@default ""] [@yojson_drop_default ( = )]
+        facet_query_num_typos : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        (* grouping parameters *)
+        group_by : string; [@default ""] [@yojson_drop_default ( = )]
+        group_limit : int option; [@default None] [@yojson_drop_default ( = )]
+        (* results parameters *)
+        include_fields : string; [@default ""] [@yojson_drop_default ( = )]
+        exclude_fields : string; [@default ""] [@yojson_drop_default ( = )]
+        highlight_fields : string; [@default ""] [@yojson_drop_default ( = )]
+        highlight_full_fields : string;
+            [@default ""] [@yojson_drop_default ( = )]
+        highlight_affix_num_tokens : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        highlight_start_tag : string; [@default ""] [@yojson_drop_default ( = )]
+        highlight_end_tag : string; [@default ""] [@yojson_drop_default ( = )]
+        enable_highlight_v1 : bool option;
+            [@default None] [@yojson_drop_default ( = )]
+        snippet_threshold : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        limit_hits : int option; [@default None] [@yojson_drop_default ( = )]
+        search_cutoff_ms : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        max_candidates : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        exhaustive_search : bool option;
+            [@default None] [@yojson_drop_default ( = )]
+        (* typo-tolerance parameters *)
+        num_typos : int option; [@default None] [@yojson_drop_default ( = )]
+        min_len_1typo : int option; [@default None] [@yojson_drop_default ( = )]
+        min_len_2typo : int option; [@default None] [@yojson_drop_default ( = )]
+        split_join_tokens : string; [@default ""] [@yojson_drop_default ( = )]
+        typo_tokens_threshold : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        drop_tokens_threshold : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        (* caching parameters *)
+        use_cache : bool option; [@default None] [@yojson_drop_default ( = )]
+        cache_ttl : int option; [@default None] [@yojson_drop_default ( = )]
+        (* vector queries*)
+        vector_query : string; [@default ""] [@yojson_drop_default ( = )]
+        remote_embedding_timeout_ms : int option;
+            [@default None] [@yojson_drop_default ( = )]
+        remote_embedding_num_tries : int option;
+            [@default None] [@yojson_drop_default ( = )]
+      }
+      [@@deriving yojson_of]
+
+      [@@@ocamlformat "disable"]
+
+      let make ~query_by
+        ~q
+        ?(prefix="")
+        ?(infix="")
+        ?pre_segmented_query
+        ?(preset="")
+        (* filter parameters *)
+        ?(filter_by = "")
+        (* ranking and sorting parameters*)
+        ?(query_by_weights="")
+        ?(text_match_type="")
+        ?(sort_by="")
+        ?prioritize_exact_match
+        ?prioritize_token_position
+        ?(pinned_hits="")
+        ?(hidden_hits="")
+        ?enable_overrides
+        (* pagination parameters *)
+        ?page
+        ?per_page
+        ?offset
+        ?limit
+        (* faceting parameters *)
+        ?(facet_by="")
+        ?max_facet_values
+        ?(facet_query="")
+        ?facet_query_num_typos
+        (* grouping parameters *)
+        ?(group_by="")
+        ?group_limit
+        (* results parameters *)
+        ?(include_fields="")
+        ?(exclude_fields="")
+        ?(highlight_fields="")
+        ?(highlight_full_fields="")
+        ?highlight_affix_num_tokens
+        ?(highlight_start_tag="")
+        ?(highlight_end_tag="")
+        ?enable_highlight_v1
+        ?snippet_threshold
+        ?limit_hits
+        ?search_cutoff_ms
+        ?max_candidates
+        ?exhaustive_search
+        (* typo-tolerance parameters *)
+        ?num_typos
+        ?min_len_1typo
+        ?min_len_2typo
+        ?(split_join_tokens="")
+        ?typo_tokens_threshold
+        ?drop_tokens_threshold
+        (* caching parameters *)
+        ?use_cache
+        ?cache_ttl
+        (* vector queries *)
+        ?(vector_query="")
+        ?remote_embedding_timeout_ms
+        ?remote_embedding_num_tries
+        ()
+        =
+        {
+          q;
+          query_by;
+          prefix;
+          infix;
+          pre_segmented_query;
+          preset;
+          filter_by;
+          query_by_weights;
+          text_match_type;
+          sort_by;
+          prioritize_exact_match;
+          prioritize_token_position;
+          pinned_hits;
+          hidden_hits;
+          enable_overrides;
+          page;
+          per_page;
+          offset;
+          limit;
+          facet_by;
+          max_facet_values;
+          facet_query;
+          facet_query_num_typos;
+          group_by;
+          group_limit;
+          include_fields;
+          exclude_fields;
+          highlight_fields;
+          highlight_full_fields;
+          highlight_affix_num_tokens;
+          highlight_start_tag;
+          highlight_end_tag;
+          enable_highlight_v1;
+          snippet_threshold;
+          limit_hits;
+          search_cutoff_ms;
+          max_candidates;
+          exhaustive_search;
+          num_typos;
+          min_len_1typo;
+          min_len_2typo;
+          split_join_tokens;
+          typo_tokens_threshold;
+          drop_tokens_threshold;
+          use_cache;
+          cache_ttl;
+          vector_query;
+          remote_embedding_timeout_ms;
+          remote_embedding_num_tries;
+        }
+    end
 
     let multi_search ~search_requests ~common_search_params collection_name =
-      let body = search_requests |> yojson_of_multi_search_request |> Yojson.Safe.to_string in
-      let path =
-        "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/multi-search"
+      let body =
+        search_requests |> MultiSearchRequest.yojson_of_t
+        |> Yojson.Safe.to_string
       in
-        RequestDescriptor.post ~params:common_search_params ~body path
+      let path =
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/documents/multi-search"
+      in
+      RequestDescriptor.post ~params:common_search_params ~body path
 
     let multi_search_raw ~body ~common_search_params collection_name =
       let path =
-        "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/multi-search"
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/documents/multi-search"
       in
       RequestDescriptor.post ~params:common_search_params ~body path
   end
