@@ -517,7 +517,7 @@ struct
         ?remote_embedding_timeout_ms
         ?remote_embedding_num_tries
         (* multi-search parameters *)
-        ?x_typesense_api_key
+        ?(x_typesense_api_key="")
         ()
         =
         {
@@ -591,12 +591,6 @@ struct
       in
       RequestDescriptor.post ~params:common_search_params ~body path
 
-    let multi_search_raw ~body ~common_search_params collection_name =
-      let path =
-        "/collections/"
-        ^ Uri.pct_encode collection_name
-        ^ "/documents/multi-search"
-      in
-      RequestDescriptor.post ~params:common_search_params ~body path
+      (* TODO: add calls that allow to bypass the typed params / body *)
   end
 end
