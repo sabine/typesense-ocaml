@@ -40,6 +40,13 @@ struct
           params : (string * string list) list;
           body : string;
         }
+      | Put of {
+          host : string;
+          path : string;
+          headers : (string * string) list;
+          params : (string * string list) list;
+          body : string;
+        }
     [@@deriving show]
 
     let get ?(headers = headers) ?(params = []) path =
@@ -53,6 +60,9 @@ struct
 
     let patch ?(headers = headers) ?(params = []) ~body path =
       Patch { host = Config.url; path; headers; params; body }
+
+    let put ?(headers = headers) ?(params = []) ~body path =
+      Put { host = Config.url; path; headers; params; body }
   end
   (* TODO: model and enforce all the response types for these endpoints *)
 
@@ -65,10 +75,17 @@ struct
       in
       RequestDescriptor.post ~body "/collections"
 
-    let clone collection_name =
+    let get collection_name =
+      let path = "/collections/" ^ Uri.pct_encode collection_name in
+      RequestDescriptor.get path
+
+    let clone existing_collection_name new_collection_name =
       let path = "/collections" in
-      let params = [ ("src_name", [ collection_name ]) ] in
-      RequestDescriptor.post ~params path
+      let params = [ ("src_name", [ existing_collection_name ]) ] in
+      let body =
+        Yojson.Safe.to_string (`Assoc [ ("name", `String new_collection_name) ])
+      in
+      RequestDescriptor.post ~params ~body path
 
     let delete collection_name =
       let path = "/collections/" ^ Uri.pct_encode collection_name in
@@ -82,6 +99,27 @@ struct
         |> Yojson.Safe.to_string
       in
       RequestDescriptor.patch ~body path
+
+    module Alias = struct
+      let create_or_update collection_name alias =
+        let path = "/aliases/" ^ Uri.pct_encode collection_name in
+        let body =
+          Yojson.Safe.to_string (`Assoc [ ("collection_name", `String alias) ])
+        in
+        RequestDescriptor.put ~body path
+
+      let get alias =
+        let path = "/aliases/" ^ Uri.pct_encode alias in
+        RequestDescriptor.get path
+
+      let list () =
+        let path = "/aliases" in
+        RequestDescriptor.get path
+
+      let delete alias =
+        let path = "/aliases/" ^ Uri.pct_encode alias in
+        RequestDescriptor.delete path
+    end
   end
 
   module Document = struct
@@ -192,68 +230,69 @@ struct
 
   module Search =
     struct
+
     [@ocamlformat "disable"]
-    let search
-    (* query parameters*)
-    ~q
-    ~query_by
-    ?(prefix="")
-    ?(infix="")
-    ?pre_segmented_query
-    ?(preset="")
-    (* filter parameters *)
-    ?(filter_by = "")
-    (* ranking and sorting parameters*)
-    ?(query_by_weights="")
-    ?(text_match_type="")
-    ?(sort_by="")
-    ?prioritize_exact_match
-    ?prioritize_token_position
-    ?(pinned_hits="")
-    ?(hidden_hits="")
-    ?enable_overrides
-    (* pagination parameters *)
-    ?page
-    ?per_page
-    ?offset
-    ?limit
-    (* faceting parameters *)
-    ?(facet_by="")
-    ?max_facet_values
-    ?(facet_query="")
-    ?facet_query_num_typos
-    (* grouping parameters *)
-    ?(group_by="")
-    ?group_limit
-    (* results parameters *)
-    ?(include_fields="")
-    ?(exclude_fields="")
-    ?(highlight_fields="")
-    ?(highlight_full_fields="")
-    ?highlight_affix_num_tokens
-    ?(highlight_start_tag="")
-    ?(highlight_end_tag="")
-    ?enable_highlight_v1
-    ?snippet_threshold
-    ?limit_hits
-    ?search_cutoff_ms
-    ?max_candidates
-    ?exhaustive_search
-    (* typo-tolerance parameters *)
-    ?num_typos
-    ?min_len_1typo
-    ?min_len_2typo
-    ?(split_join_tokens="")
-    ?typo_tokens_threshold
-    ?drop_tokens_threshold
-    (* caching parameters *)
-    ?use_cache
-    ?cache_ttl
-    collection_name =
-    let path =
-      "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/search"
-    in
-    let params =
+    let search_params
+      (* query parameters*)
+      ~q
+      ~query_by
+      ?(prefix="")
+      ?(infix="")
+      ?pre_segmented_query
+      ?(preset="")
+      (* filter parameters *)
+      ?(filter_by = "")
+      (* ranking and sorting parameters*)
+      ?(query_by_weights="")
+      ?(text_match_type="")
+      ?(sort_by="")
+      ?prioritize_exact_match
+      ?prioritize_token_position
+      ?(pinned_hits="")
+      ?(hidden_hits="")
+      ?enable_overrides
+      (* pagination parameters *)
+      ?page
+      ?per_page
+      ?offset
+      ?limit
+      (* faceting parameters *)
+      ?(facet_by="")
+      ?max_facet_values
+      ?(facet_query="")
+      ?facet_query_num_typos
+      (* grouping parameters *)
+      ?(group_by="")
+      ?group_limit
+      (* results parameters *)
+      ?(include_fields="")
+      ?(exclude_fields="")
+      ?(highlight_fields="")
+      ?(highlight_full_fields="")
+      ?highlight_affix_num_tokens
+      ?(highlight_start_tag="")
+      ?(highlight_end_tag="")
+      ?enable_highlight_v1
+      ?snippet_threshold
+      ?limit_hits
+      ?search_cutoff_ms
+      ?max_candidates
+      ?exhaustive_search
+      (* typo-tolerance parameters *)
+      ?num_typos
+      ?min_len_1typo
+      ?min_len_2typo
+      ?(split_join_tokens="")
+      ?typo_tokens_threshold
+      ?drop_tokens_threshold
+      (* caching parameters *)
+      ?use_cache
+      ?cache_ttl
+      (* vector queries *)
+      ?(vector_query="")
+      ?remote_embedding_timeout_ms
+      ?remote_embedding_num_tries
+      () =
       let add_if_string name value =
         if String.length prefix > 0 then [(name, [value])] else []
       in
@@ -321,7 +360,93 @@ struct
       (* caching parameters *)
       @ add_if_bool "use_cache" use_cache
       @ add_if_int "cache_ttl" cache_ttl
-  in
-      RequestDescriptor.get ~params path
+      (* vector queries*)
+      @ add_if_string "vector_query" vector_query
+      @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
+      @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
+
+    let search
+      ~search_params
+      collection_name =
+      let path =
+        "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/search"
+      in
+        RequestDescriptor.get ~params:search_params path
+
+    open Ppx_yojson_conv_lib.Yojson_conv
+
+    type multi_search_request = {
+      q: string;
+      query_by: string;
+      prefix: string;
+      infix: string;
+      pre_segmented_query: bool;
+      preset: string;
+      (* filter parameters *)
+      filter_by: string;
+      (* ranking and sorting parameters*)
+      query_by_weights: string;
+      text_match_type: string;
+      sort_by: string;
+      prioritize_exact_match: bool;
+      prioritize_token_position: bool;
+      pinned_hits: string;
+      hidden_hits: string;
+      enable_overrides: bool;
+      (* pagination parameters *)
+      page: int;
+      per_page: int;
+      offset: int;
+      limit: int;
+      (* faceting parameters *)
+      facet_by: string;
+      max_facet_values: int;
+      facet_query: string;
+      facet_query_num_typos: int;
+      (* grouping parameters *)
+      group_by: string;
+      group_limit: int;
+      (* results parameters *)
+      include_fields: string;
+      exclude_fields: string;
+      highlight_fields: string;
+      highlight_full_fields: string;
+      highlight_affix_num_tokens: int;
+      highlight_start_tag: string;
+      highlight_end_tag: string;
+      enable_highlight_v1: bool;
+      snippet_threshold: int;
+      limit_hits: int;
+      search_cutoff_ms: int;
+      max_candidates: int;
+      exhaustive_search: bool;
+      (* typo-tolerance parameters *)
+      num_typos: int;
+      min_len_1typo: int;
+      min_len_2typo: int;
+      split_join_tokens: string;
+      typo_tokens_threshold: int;
+      drop_tokens_threshold: int;
+      (* caching parameters *)
+      use_cache: bool;
+      cache_ttl: int;
+      (* vector queries*)
+      vector_query: string;
+      remote_embedding_timeout_ms: int;
+      remote_embedding_num_tries: int;
+    } [@@deriving yojson_of]
+
+    let multi_search ~search_requests ~common_search_params collection_name =
+      let body = search_requests |> yojson_of_multi_search_request |> Yojson.Safe.to_string in
+      let path =
+        "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/multi-search"
+      in
+        RequestDescriptor.post ~params:common_search_params ~body path
+
+    let multi_search_raw ~body ~common_search_params collection_name =
+      let path =
+        "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/multi-search"
+      in
+      RequestDescriptor.post ~params:common_search_params ~body path
   end
 end

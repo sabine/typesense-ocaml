@@ -18,6 +18,8 @@ let make_request = function
       Blink_client.delete ~headers ~params ~host path
   | Patch { host; path; headers; params; body } ->
       Blink_client.patch ~headers ~params ~host ~body path
+  | Put { host; path; headers; params; body } ->
+      Blink_client.put ~headers ~params ~host ~body path
 
 let print_req title r =
   print_endline title;

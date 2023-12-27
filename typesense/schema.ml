@@ -55,6 +55,25 @@ let field_type_of_yojson = function
   | `String "auto" -> Auto
   | _ -> raise (Invalid_argument "failed to decode field_type")
 
+type model_config = {
+  model_name : string;
+  (* when using your own model *)
+  indexing_prefix : string; [@default ""] [@yojson_drop_default ( = )]
+  query_prefix : string; [@default ""] [@yojson_drop_default ( = )]
+  (* OpenAI AIP model and Google PaLM API model*)
+  api_key : string; [@default ""] [@yojson_drop_default ( = )]
+  (* GCP Vertex AI API model *)
+  access_token : string; [@default ""] [@yojson_drop_default ( = )]
+  refresh_token : string; [@default ""] [@yojson_drop_default ( = )]
+  client_id : string; [@default ""] [@yojson_drop_default ( = )]
+  client_secret : string; [@default ""] [@yojson_drop_default ( = )]
+  project_id : string; [@default ""] [@yojson_drop_default ( = )]
+}
+[@@deriving yojson_of]
+
+type embed_field_info = { from : string list; model_config : model_config }
+[@@deriving yojson_of]
+
 type create_field = {
   name : string;
   typesense_type : field_type; [@key "type"]
@@ -62,12 +81,14 @@ type create_field = {
   facet : bool; [@default false] [@yojson_drop_default ( = )]
   index : bool; [@default true] [@yojson_drop_default ( = )]
   locale : string; [@default ""] [@yojson_drop_default ( = )]
+  num_dim : int; [@default 0] [@yojson_drop_default ( = )]
+  embed : embed_field_info option; [@default None] [@yojson_drop_default ( = )]
 }
 [@@deriving yojson_of]
 
 let create_field ?(facet = false) ?(optional = false) ?(index = true)
-    ?(locale = "") name typesense_type =
-  { name; typesense_type; facet; optional; index; locale }
+    ?(locale = "") ?(num_dim = 0) ?embed name typesense_type =
+  { name; typesense_type; facet; optional; index; locale; num_dim; embed }
 
 type create_schema = {
   name : string;

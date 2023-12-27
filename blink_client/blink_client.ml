@@ -69,3 +69,6 @@ let delete ?(headers = []) ?(params = []) ~host path =
 
 let patch ?(headers = []) ?(params = []) ~host ~body path =
   make ~meth:`PATCH ~headers ~params ~host ~body:(Some body) path
+
+let put ?(headers = []) ?(params = []) ~host ~body path =
+  make ~meth:`PUT ~headers ~params ~host ~body:(Some body) path
