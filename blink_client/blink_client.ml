@@ -2,9 +2,10 @@
 
 let ( let* ) = Result.bind
 
-let make ~meth ?(headers = []) ?(params = []) ~host path =
+let make ~meth ?(headers = []) ?(params = []) ?(body = None) ~host path =
   let headers =
     Http.Header.init () |> fun h -> Http.Header.add_list h headers
+    (*|> (fun h -> Http.Header.add h "connection" "keep-alive")*)
   in
   let path =
     Uri.of_string path |> fun path ->
@@ -21,7 +22,8 @@ let make ~meth ?(headers = []) ?(params = []) ~host path =
   in
   
   let req = Http.Request.make ~meth ~headers path in
-  let* conn = Blink.request conn req () |> Result.map_error (fun e -> match e with
+  let body = body |> Option.map Riot.IO.Buffer.of_string in
+  let* conn = Blink.request ?body conn req () |> Result.map_error (fun e -> match e with
   | `Closed -> `Msg "closed on Blink.request"
   | `Unix_error e -> `Msg (Unix.error_message e)
   ) in
@@ -43,16 +45,19 @@ let make ~meth ?(headers = []) ?(params = []) ~host path =
             (Http.Header.to_lines headers |> String.concat "")
             (Riot.IO.Buffer.length body));
 
-      Error (`Msg "failed to connect")
+      Error (`Msg (Printf.sprintf "> Got response:\n%s\n%s\n%d\n%!"
+      (Http.Status.to_string status)
+      (Http.Header.to_lines headers |> String.concat "")
+      (Riot.IO.Buffer.length body)))
 
 let get ?(headers = []) ?(params = []) ~host path =
   make ~meth:`GET ~headers ~params ~host path
 
-let post ?(headers = []) ?(params = []) ~host path =
-  make ~meth:`POST ~headers ~params ~host path
+let post ?(headers = []) ?(params = []) ~host ~body path =
+  make ~meth:`POST ~headers ~params ~host ~body:(Some body)  path
 
 let delete ?(headers = []) ?(params = []) ~host path =
   make ~meth:`DELETE ~headers ~params ~host path
 
-let patch ?(headers = []) ?(params = []) ~host path =
-  make ~meth:`PATCH ~headers ~params ~host path
+let patch ?(headers = []) ?(params = []) ~host ~body  path =
+  make ~meth:`PATCH ~headers ~params ~host ~body:(Some body)  path

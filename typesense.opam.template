@@ -1,5 +1,6 @@
 pin-depends: [
   ["riot.0.0.7" "https://github.com/leostera/riot/releases/download/0.0.7/riot-0.0.7.tbz"]
-  ["blink.0.0.1" "https://github.com/leostera/blink/releases/download/0.0.1/blink-0.0.1.tbz"]
+  (*["blink.0.0.1" "https://github.com/leostera/blink/releases/download/0.0.1/blink-0.0.1.tbz"]*)
+  ["blink.0.0.1" "../blink"] (* this is blink.0.0.1 modified to tread `Eof and `Closed as a successful outcome of streaming *)
   ["castore.0.0.1" "https://github.com/leostera/castore/releases/download/0.0.1/castore-0.0.1.tbz"]
 ]
