@@ -451,6 +451,8 @@ struct
             [@default None] [@yojson_drop_default ( = )]
         remote_embedding_num_tries : int option;
             [@default None] [@yojson_drop_default ( = )]
+        (* multi search parameters *)
+        x_typesense_api_key : string; [@default ""] [@yojson_drop_default ( = )]
       }
       [@@deriving yojson_of]
 
@@ -514,6 +516,8 @@ struct
         ?(vector_query="")
         ?remote_embedding_timeout_ms
         ?remote_embedding_num_tries
+        (* multi-search parameters *)
+        ?x_typesense_api_key
         ()
         =
         {
@@ -566,8 +570,14 @@ struct
           vector_query;
           remote_embedding_timeout_ms;
           remote_embedding_num_tries;
+          x_typesense_api_key;
         }
     end
+
+    type multi_search_request = {
+      searches: MultiSearchRequest.t;
+      limit_multi_searches: bool; [@default false] [@yojson_drop_default ( = )]
+    }
 
     let multi_search ~search_requests ~common_search_params collection_name =
       let body =
