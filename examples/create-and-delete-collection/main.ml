@@ -37,6 +37,7 @@ let example_schema =
         create_field "company_name" String;
         create_field "num_employees" Int32;
         create_field "country" String ~facet:true;
+        create_field "company_category" String ~facet:true;
       ]
       ~default_sorting_field:"num_employees")
 

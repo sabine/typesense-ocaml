@@ -377,17 +377,23 @@ struct
         @ add_if_string "x-typesense-api-key" x_typesense_api_key
     end
 
-    let search ~search_params collection_name =
+    let search ?(x_typesense_user_id = "") ~search_params collection_name =
       let path =
         "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/search"
       in
-      RequestDescriptor.get ~params:search_params path
+      let headers =
+        if x_typesense_user_id <> "" then
+          ("X-TYPESENSE-USER-ID", x_typesense_user_id)
+          :: RequestDescriptor.headers
+        else RequestDescriptor.headers
+      in
+      RequestDescriptor.get ~params:search_params ~headers path
 
     module MultiSearch = struct
       open Ppx_yojson_conv_lib.Yojson_conv
 
       type single_search = {
-        collection: string [@default ""] [@yojson_drop_default ( = )];
+        collection : string; [@default ""] [@yojson_drop_default ( = )]
         q : string;
         query_by : string;
         prefix : string; [@default ""] [@yojson_drop_default ( = )]
@@ -594,7 +600,7 @@ struct
           searches : single_search list;
         } [@@deriving yojson_of]
 
-      let perform ~search_requests ~common_search_params collection_name =
+      let perform ~search_requests ~common_search_params ?(x_typesense_user_id="") collection_name =
         let body =
           search_requests |> yojson_of_request
           |> Yojson.Safe.to_string
@@ -604,7 +610,343 @@ struct
           ^ Uri.pct_encode collection_name
           ^ "/documents/multi-search"
         in
-        RequestDescriptor.post ~params:common_search_params ~body path
+        let headers =
+          if x_typesense_user_id <> "" then
+          ("X-TYPESENSE-USER-ID", x_typesense_user_id) :: RequestDescriptor.headers
+          else RequestDescriptor.headers
+        in
+        RequestDescriptor.post ~params:common_search_params ~body ~headers path
     end
   end
+
+  module Analytics = struct
+    let create_rule ~name ~rule_type ~source_collections ~destination_collection
+        ~limit =
+      let path = "/analytics/rules" in
+      let body =
+        `Assoc
+          [
+            ("name", name);
+            ("type", rule_type);
+            ( "params",
+              `Assoc
+                [
+                  ( "source",
+                    `Assoc
+                      [
+                        ( "collections",
+                          `List
+                            (List.map (fun s -> `String s) source_collections)
+                        );
+                      ] );
+                  ( "destination",
+                    `Assoc [ ("collection", `String destination_collection) ] );
+                  ("limit", limit);
+                ] );
+          ]
+        |> Yojson.Safe.to_string
+      in
+      RequestDescriptor.post ~body path
+
+    let list_rules =
+      let path = "/analytics/rules" in
+      RequestDescriptor.get path
+
+    let delete_rule rule_name =
+      let path = "/analytics/rules/" ^ Uri.pct_encode rule_name in
+      RequestDescriptor.delete path
+  end
+
+  module Keys = struct
+    open Ppx_yojson_conv_lib.Yojson_conv
+
+    type create_key = {
+      actions : string list;
+      collections : string list;
+      description : string;
+      value : string; [@default ""] [@yojson_drop_default ( = )]
+      expires_at : int64; [@default 0L] [@yojson_drop_default ( = )]
+    }
+    [@@deriving yojson_of]
+
+    type create_key_response = {
+      id : int;
+      actions : string list;
+      collections : string list;
+      description : string;
+      value : string;
+      expires_at : int64;
+    }
+    [@@deriving of_yojson]
+
+    let create_key body =
+      let path = "/keys" in
+      let body = body |> yojson_of_create_key |> Yojson.Safe.to_string in
+      RequestDescriptor.post ~body path
+
+    type get_key_response = {
+      id : int;
+      actions : string list;
+      collections : string list;
+      description : string;
+      value_prefix : string;
+      expires_at : int64;
+    }
+    [@@deriving of_yojson]
+
+    let get_key key_id =
+      let path = "/keys/" ^ Uri.pct_encode (string_of_int key_id) in
+      RequestDescriptor.get path
+
+    type list_keys_response = { keys : get_key_response list }
+
+    let list_keys =
+      let path = "/keys" in
+      RequestDescriptor.get path
+
+    type delete_key_response = { id : int }
+
+    let delete_key key_id =
+      let path = "/keys/" ^ Uri.pct_encode (string_of_int key_id) in
+      RequestDescriptor.delete path
+  end
+
+  module Override = struct
+    open Ppx_yojson_conv_lib.Yojson_conv
+
+    type override_rule = {
+      query : string; [@default ""] [@yojson_drop_default ( = )]
+      filter_by : string; [@default ""] [@yojson_drop_default ( = )]
+      _match : string; [@key "match"] [@default ""] [@yojson_drop_default ( = )]
+    }
+    [@@deriving yojson]
+
+    type override_include = { id : string; position : int } [@@deriving yojson]
+    type override_exclude = { id : string } [@@deriving yojson]
+
+    type override = {
+      rule : override_rule;
+      includes : override_include list option;
+          [@default None] [@yojson_drop_default ( = )]
+      excludes : override_exclude list option;
+          [@default None] [@yojson_drop_default ( = )]
+      filter_by : string option; [@default None] [@yojson_drop_default ( = )]
+      sort_by : string option; [@default None] [@yojson_drop_default ( = )]
+      replace_query : bool option; [@default None] [@yojson_drop_default ( = )]
+      remove_matched_tokens : bool option;
+          [@default None] [@yojson_drop_default ( = )]
+      filter_curated_hits : bool option;
+          [@default None] [@yojson_drop_default ( = )]
+      effective_from_ts : int64 option;
+          [@default None] [@yojson_drop_default ( = )]
+      effective_to_ts : int64 option;
+          [@default None] [@yojson_drop_default ( = )]
+      stop_processing : bool option; [@default None] [@yojson_drop_default ( = )]
+    }
+    [@@deriving yojson_of]
+
+    type create_override_response = {
+      id : string;
+      rule : override_rule;
+      includes : override_include list option;
+          [@default None] [@yojson_drop_default ( = )]
+      excludes : override_exclude list option;
+          [@default None] [@yojson_drop_default ( = )]
+      filter_by : string option; [@default None] [@yojson_drop_default ( = )]
+      sort_by : string option; [@default None] [@yojson_drop_default ( = )]
+      replace_query : bool option; [@default None] [@yojson_drop_default ( = )]
+      remove_matched_tokens : bool option;
+          [@default None] [@yojson_drop_default ( = )]
+      filter_curated_hits : bool option;
+          [@default None] [@yojson_drop_default ( = )]
+      effective_from_ts : int64 option;
+          [@default None] [@yojson_drop_default ( = )]
+      effective_to_ts : int64 option;
+          [@default None] [@yojson_drop_default ( = )]
+      stop_processing : bool option; [@default None] [@yojson_drop_default ( = )]
+    }
+    [@@deriving of_yojson]
+
+    let create ~collection_name ~override_id override =
+      let path =
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/overrides/" ^ Uri.pct_encode override_id
+      in
+      let body = override |> yojson_of_override |> Yojson.Safe.to_string in
+      RequestDescriptor.post ~body path
+
+    type list_override_response = { overrides : create_override_response list }
+    [@@deriving of_yojson]
+
+    let list ~collection_name =
+      let path =
+        "/collections/" ^ Uri.pct_encode collection_name ^ "/overrides"
+      in
+      RequestDescriptor.get path
+
+    type delete_override_response = { id : string } [@@deriving of_yojson]
+
+    let delete ~collection_name ~override_id =
+      let path =
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/overrides/" ^ Uri.pct_encode override_id
+      in
+      RequestDescriptor.delete path
+  end
+
+  module Synonym = struct
+    open Ppx_yojson_conv_lib.Yojson_conv
+
+    type synonyms = {
+      synonyms : string list;
+      root : string option; [@default None] [@yojson_drop_default ( = )]
+      locale : string option; [@default None] [@yojson_drop_default ( = )]
+      symbols_to_index : string list option;
+          [@default None] [@yojson_drop_default ( = )]
+    }
+    [@@deriving yojson_of]
+
+    type create_synonyms_response = {
+      id : string;
+      synonyms : string list;
+      root : string option; [@default None] [@yojson_drop_default ( = )]
+      locale : string option; [@default None] [@yojson_drop_default ( = )]
+      symbols_to_index : string list option;
+          [@default None] [@yojson_drop_default ( = )]
+    }
+    [@@deriving of_yojson]
+
+    let create ~collection_name ~synonym_id synonyms =
+      let path =
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/synonyms/" ^ Uri.pct_encode synonym_id
+      in
+      let body = synonyms |> yojson_of_synonyms |> Yojson.Safe.to_string in
+      RequestDescriptor.post ~body path
+
+    type get_synonyms_response = create_synonyms_response [@@deriving of_yojson]
+
+    let get ~collection_name ~synonym_id =
+      let path =
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/synonyms/" ^ Uri.pct_encode synonym_id
+      in
+      RequestDescriptor.get path
+
+    type list_synonyms_response = { synonyms : get_synonyms_response list }
+    [@@deriving of_yojson]
+
+    let list ~collection_name =
+      let path =
+        "/collections/" ^ Uri.pct_encode collection_name ^ "/synonyms"
+      in
+      RequestDescriptor.get path
+
+    type delete_synonyms_response = { id : string } [@@deriving of_yojson]
+
+    let delete ~collection_name ~synonym_id =
+      let path =
+        "/collections/"
+        ^ Uri.pct_encode collection_name
+        ^ "/synonyms/" ^ Uri.pct_encode synonym_id
+      in
+      RequestDescriptor.delete path
+  end
+
+  module Cluster_operations = struct
+    open Ppx_yojson_conv_lib.Yojson_conv
+
+    type cluster_operation_response = { success : bool } [@@deriving of_yojson]
+
+    let create_snapshot ~snapshot_path =
+      let path = "/operations/snapshot" in
+      let params = [ ("snapshot_path", [ snapshot_path ]) ] in
+      RequestDescriptor.post ~params path
+
+    let compact_db =
+      let path = "/operations/db/compact" in
+      RequestDescriptor.post path
+
+    let re_elect_leader =
+      let path = "/operations/vote" in
+      RequestDescriptor.post path
+
+    let toggle_slow_request_log ~log_slow_requests_time_ms =
+      let path = "/config" in
+      let body =
+        `Assoc [ ("log-slow-requests-time-ms", `Int log_slow_requests_time_ms) ]
+        |> Yojson.Safe.to_string
+      in
+      RequestDescriptor.post ~body path
+
+    type metrics_response = {
+      system_cpu1_active_percentage : string;
+      system_cpu2_active_percentage : string;
+      system_cpu3_active_percentage : string;
+      system_cpu4_active_percentage : string;
+      system_cpu_active_percentage : string;
+      system_disk_total_bytes : string;
+      system_disk_used_bytes : string;
+      system_memory_total_bytes : string;
+      system_memory_used_bytes : string;
+      system_network_received_bytes : string;
+      system_network_sent_bytes : string;
+      typesense_memory_active_bytes : string;
+      typesense_memory_allocated_bytes : string;
+      typesense_memory_fragmentation_ratio : string;
+      typesense_memory_mapped_bytes : string;
+      typesense_memory_metadata_bytes : string;
+      typesense_memory_resident_bytes : string;
+      typesense_memory_retained_bytes : string;
+    }
+    [@@deriving of_yojson]
+
+    let get_metrics =
+      let path = "/metrics.json" in
+      RequestDescriptor.get path
+
+    module Stats_table = struct
+      type t = (string, float) Hashtbl.t
+
+      let t_of_yojson v =
+        match v with
+        | `Assoc l ->
+            let tbl = Hashtbl.create (List.length l) in
+            let decode_kv_pair = function
+              | k, `Float v -> Hashtbl.add tbl k v
+              | _ -> raise (Invalid_argument "expected a float value")
+            in
+            l |> List.iter decode_kv_pair;
+            tbl
+        | _ -> raise (Invalid_argument "Hashtbl.t_of_yojson failed")
+    end
+
+    type stats_response = {
+      latency_ms : Stats_table.t;
+      requests_per_second : Stats_table.t;
+    }
+    [@@deriving of_yojson]
+
+    let get_stats =
+      let path = "/stats.json" in
+      RequestDescriptor.get path
+
+    type health_response = { ok : bool } [@@deriving of_yojson]
+
+    let get_health =
+      let path = "/health" in
+      RequestDescriptor.get path
+  end
+
+  type request_error =
+    [ `BadRequest
+    | `Unauthorized
+    | `NotFound
+    | `Conflict
+    | `UnprocessableEntity
+    | `ServiceUnavailable ]
 end
