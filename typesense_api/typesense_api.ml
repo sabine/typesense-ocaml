@@ -250,7 +250,7 @@ struct
     module SearchParams =
       struct
       [@ocamlformat "disable"]
-      let search_params
+      let make
         (* query parameters*)
         ~q
         ~query_by
@@ -310,6 +310,9 @@ struct
         ?(vector_query="")
         ?remote_embedding_timeout_ms
         ?remote_embedding_num_tries
+        (* multi-search parameters *)
+        ?limit_multi_searches
+        ?(x_typesense_api_key="")
         () =
         let open Params in
         [("q", [q]); ("query_by", [query_by])]
@@ -369,6 +372,9 @@ struct
         @ add_if_string "vector_query" vector_query
         @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
         @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
+        (* multis-earch params *)
+        @ add_if_int "limit_multi_searches" limit_multi_searches
+        @ add_if_string "x-typesense-api-key" x_typesense_api_key
     end
 
     let search ~search_params collection_name =
@@ -377,10 +383,11 @@ struct
       in
       RequestDescriptor.get ~params:search_params path
 
-    module MultiSearchRequest = struct
+    module MultiSearch = struct
       open Ppx_yojson_conv_lib.Yojson_conv
 
-      type t = {
+      type single_search = {
+        collection: string [@default ""] [@yojson_drop_default ( = )];
         q : string;
         query_by : string;
         prefix : string; [@default ""] [@yojson_drop_default ( = )]
@@ -525,10 +532,12 @@ struct
         ?remote_embedding_timeout_ms
         ?remote_embedding_num_tries
         (* multi-search parameters *)
+        ?(collection="")
         ?(x_typesense_api_key="")
         ()
         =
         {
+          collection;
           q;
           query_by;
           prefix;
@@ -580,25 +589,22 @@ struct
           remote_embedding_num_tries;
           x_typesense_api_key;
         }
+
+      type request = {
+          searches : single_search list;
+        } [@@deriving yojson_of]
+
+      let perform ~search_requests ~common_search_params collection_name =
+        let body =
+          search_requests |> yojson_of_request
+          |> Yojson.Safe.to_string
+        in
+        let path =
+          "/collections/"
+          ^ Uri.pct_encode collection_name
+          ^ "/documents/multi-search"
+        in
+        RequestDescriptor.post ~params:common_search_params ~body path
     end
-
-    type multi_search_request = {
-      searches : MultiSearchRequest.t;
-      limit_multi_searches : bool; [@default false] [@yojson_drop_default ( = )]
-    }
-
-    let multi_search ~search_requests ~common_search_params collection_name =
-      let body =
-        search_requests |> MultiSearchRequest.yojson_of_t
-        |> Yojson.Safe.to_string
-      in
-      let path =
-        "/collections/"
-        ^ Uri.pct_encode collection_name
-        ^ "/documents/multi-search"
-      in
-      RequestDescriptor.post ~params:common_search_params ~body path
-
-    (* TODO: add calls that allow to bypass the typed params / body *)
   end
 end

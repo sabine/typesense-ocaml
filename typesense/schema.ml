@@ -86,8 +86,15 @@ type create_field = {
 }
 [@@deriving yojson_of]
 
-let create_field ?(facet = false) ?(optional = false) ?(index = true)
-    ?(locale = "") ?(num_dim = 0) ?embed name typesense_type =
+let create_field
+    ?(facet = false)
+    ?(optional = false)
+    ?(index = true)
+    ?(locale = "")
+    ?(num_dim = 0)
+    ?embed
+    name
+    typesense_type =
   { name; typesense_type; facet; optional; index; locale; num_dim; embed }
 
 type create_schema = {
@@ -108,8 +115,12 @@ let yojson_of_update_schema_field = function
   | Drop name -> yojson_of_drop_schema_field { name; drop = true }
   | Add field -> yojson_of_create_field field
 
-let schema ?(token_separators = []) ?(symbols_to_index = [])
-    ?(default_sorting_field = "") name fields =
+let schema
+    ?(token_separators = [])
+    ?(symbols_to_index = [])
+    ?(default_sorting_field = "")
+    name
+    fields =
   { name; fields; token_separators; symbols_to_index; default_sorting_field }
 
 type update_schema = { fields : update_schema_field list }
