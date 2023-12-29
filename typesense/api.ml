@@ -420,10 +420,10 @@ struct
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     type 'document search_result_hit = {
-      (* highlight: object - Highlighted version of the matching document*)
+      highlight: 'document;
       document : 'document;
       text_match: int64;
-      (*geo_distance_meters: object - Can be any key-value pair type integer*)
+      (*geo_distance_meters: object - Can be any key-value pair type integer, keys are names of the geopoint search fields*)
       vector_distance: float;
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 

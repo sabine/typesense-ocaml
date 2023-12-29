@@ -1,36 +1,92 @@
-type string_filter =
-  | Match of { q : string }
-  | ExactMatch of { q : string }
-  | NotEquals of { q : string }
-  | MatchOneOf of { q : string list }
-  | ExactMatchOneOf of { q : string list }
+module StringFilter = struct
+  type t =
+    | Match of { q : string }
+    | ExactMatch of { q : string }
+    | NotEquals of { q : string }
+    | MatchOneOf of { q : string list }
+    | ExactMatchOneOf of { q : string list }
+    | ExactMatchNoneOf of { q : string list }
 
-type string_list_filter = string_filter
+  let to_string f =
+    match f with
+    | Match { q } -> q
+    | ExactMatch { q } -> "=" ^ q
+    | NotEquals { q } -> "!=" ^ q
+    | MatchOneOf { q } -> "[" ^ String.concat "," q ^ "]"
+    | ExactMatchOneOf { q } -> "=[" ^ String.concat "," q ^ "]"
+    | ExactMatchNoneOf { q } -> "!=[" ^ String.concat "," q ^ "]"
+end
 
-type 'a number_filter =
-  | Match of { q : 'a }
-  | Less of { q : 'a }
-  | LessOrEqual of { q : 'a }
-  | Greater of { q : 'a }
-  | GreaterOrEqual of { q : 'a }
-  | InRange of { start : 'a; end_ : 'a }
+module MakeNumberFilter (Number : sig
+  type t
 
-type 'a number_list_filter = Match of { q : 'a }
+  val to_string : t -> string
+end) =
+struct
+  type number_range = { min : Number.t; max : Number.t }
+  type number_value_or_range = Number of Number.t | Range of number_range
 
-(*TODO: number filter needs to be a functor
+  let string_of_number_value_or_range (f : number_value_or_range) =
+    match f with
+    | Number n -> Number.to_string n
+    | Range r ->
+        "[" ^ Number.to_string r.min ^ ".." ^ Number.to_string r.max ^ "]"
 
-  pub type Int64Filter = NumberFilter<i64>;
-  pub type Int32Filter = NumberFilter<i32>;
-  pub type FloatFilter = NumberFilter<f32>;
+  type t =
+    | Match of { q : Number.t }
+    | Less of { q : Number.t }
+    | LessOrEqual of { q : Number.t }
+    | Greater of { q : Number.t }
+    | GreaterOrEqual of { q : Number.t }
+    | MatchOneOf of { q : number_value_or_range list }
 
-  pub type Int64ListFilter = NumberListFilter<i64>;
-  pub type Int32ListFilter = NumberListFilter<i64>;
-  pub type FloatListFilter = NumberListFilter<i64>;
-*)
+  let to_string (f : t) =
+    match f with
+    | Match { q } -> Number.to_string q
+    | Less { q } -> "<" ^ Number.to_string q
+    | LessOrEqual { q } -> "<=" ^ Number.to_string q
+    | Greater { q } -> ">" ^ Number.to_string q
+    | GreaterOrEqual { q } -> ">=" ^ Number.to_string q
+    | MatchOneOf { q } ->
+        "["
+        ^ String.concat "," (List.map string_of_number_value_or_range q)
+        ^ "]"
+end
 
-type geopoint_filter =
-  | InRadiusAroundLocation of {
-      lat : float;
-      lon : float;
-      distance_in_km : float;
-    }
+module Int64Filter = MakeNumberFilter (Int64)
+module Int32Filter = MakeNumberFilter (Int32)
+module FloatFilter = MakeNumberFilter (Float)
+
+module GeopointFilter = struct
+  type geopoint = { lat : Float.t; lon : Float.t }
+
+  let string_of_geopoint geopoint =
+    Float.to_string geopoint.lat ^ "," ^ Float.to_string geopoint.lon
+
+  type t =
+    | InRadiusAroundLocationKm of {
+        geopoint : geopoint;
+        distance_in_km : Float.t;
+      }
+    | InRadiusAroundLocationMi of {
+        geopoint : geopoint;
+        distance_in_mi : Float.t;
+      }
+    | InsideGeoPolygon of { geopoints : geopoint list }
+
+  let string_of_t = function
+    | InRadiusAroundLocationKm { geopoint; distance_in_km } ->
+        "("
+        ^ string_of_geopoint geopoint
+        ^ ","
+        ^ Float.to_string distance_in_km
+        ^ " km) "
+    | InRadiusAroundLocationMi { geopoint; distance_in_mi } ->
+        "("
+        ^ string_of_geopoint geopoint
+        ^ ","
+        ^ Float.to_string distance_in_mi
+        ^ " mi) "
+    | InsideGeoPolygon { geopoints } ->
+        "(" ^ String.concat "," (List.map string_of_geopoint geopoints) ^ ")"
+end
