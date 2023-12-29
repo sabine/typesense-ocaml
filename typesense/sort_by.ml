@@ -49,5 +49,3 @@ let by_geopoint ~field_name s =
           Printf.sprintf
             "%s(lat: %f, lon: %f, exclude_radius: %fkm, precision: %fkm):%s"
             field_name lat lon e p order)
-
-let sort xs = String.concat "," xs

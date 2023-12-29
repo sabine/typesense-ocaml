@@ -5,6 +5,16 @@ end) =
 struct
   open Ppx_yojson_conv_lib.Yojson_conv
 
+  module Yojson = struct
+    include Yojson
+
+    module Safe = struct
+      include Yojson.Safe
+
+      let t_of_yojson v = v
+    end
+  end
+
   module Params = struct
     let add_if_string name value =
       if String.length value > 0 then [ (name, [ value ]) ] else []
@@ -419,33 +429,46 @@ struct
       snippet: string;
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-    type 'document search_result_hit = {
-      highlight: 'document;
-      document : 'document;
+    module GeoDistanceMeters = struct
+      type t = (string, float) Hashtbl.t
+
+      let t_of_yojson v =
+        match v with
+        | `Assoc l ->
+            let tbl = Hashtbl.create (List.length l) in
+            let decode_kv_pair = function
+              | k, `Float v -> Hashtbl.add tbl k v
+              | _ -> raise (Invalid_argument "expected a float value")
+            in
+            l |> List.iter decode_kv_pair;
+            tbl
+        | _ -> raise (Invalid_argument "GeoDistanceMeters.t_of_yojson expected an object")
+    end
+
+    type search_result_hit = {
+      highlight: Yojson.Safe.t;
+      document : Yojson.Safe.t;
       text_match: int64;
-      (*geo_distance_meters: object - Can be any key-value pair type integer, keys are names of the geopoint search fields*)
+      geo_distance_meters: GeoDistanceMeters.t;
       vector_distance: float;
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-    type 'document search_grouped_hit = {
+    type search_grouped_hit = {
       found: int;
       group_key : string list;
-      hits: 'document search_result_hit list;
+      hits: search_result_hit list;
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-    type 'document search_response = {
+    type search_response = {
       facet_counts : FacetCounts.t;
       found : int;
       search_time_ms : int;
       out_of : int;
       search_cutoff: bool;
       page : int;
-      grouped_hits: 'document search_grouped_hit list;
-      hits : 'document search_result_hit list;
-      (* request_params : object / required collection_name, q, per_page *)
-
-
-
+      grouped_hits: search_grouped_hit list;
+      hits : search_result_hit list;
+      request_params : Yojson.Safe.t;
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let search ?(x_typesense_user_id = "") ~search_params collection_name =
@@ -974,7 +997,7 @@ struct
       let path = "/metrics.json" in
       RequestDescriptor.get path
 
-    module Stats_table = struct
+    module StatsTable = struct
       type t = (string, float) Hashtbl.t
 
       let t_of_yojson v =
@@ -987,12 +1010,13 @@ struct
             in
             l |> List.iter decode_kv_pair;
             tbl
-        | _ -> raise (Invalid_argument "Hashtbl.t_of_yojson failed")
+        | _ ->
+            raise (Invalid_argument "StatsTable.t_of_yojson expected an object")
     end
 
     type stats_response = {
-      latency_ms : Stats_table.t;
-      requests_per_second : Stats_table.t;
+      latency_ms : StatsTable.t;
+      requests_per_second : StatsTable.t;
     }
     [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
