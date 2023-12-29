@@ -145,10 +145,11 @@ module Document = struct
 
   let string_of_dirty_values v =
     match v with
-    | Coerce_or_reject -> "coerce_or_reject"
-    | Coerce_or_drop -> "coerce_or_drop"
-    | Drop -> "drop"
-    | Reject -> "reject"
+    | Some Coerce_or_reject -> "coerce_or_reject"
+    | Some Coerce_or_drop -> "coerce_or_drop"
+    | Some Drop -> "drop"
+    | Some Reject -> "reject"
+    | None -> ""
 
   type document_write_action = Create | Upsert | Update | Emplace
 
@@ -158,41 +159,43 @@ module Document = struct
     | Update -> "update"
     | Emplace -> "emplace"
 
-  let add ~config ?dirty_values ?remote_embedding_timeout_ms
-      ?remote_embedding_num_tries ?(action = Create) collection_name document =
-    let body = document in
+  let add ~config ?(dirty_values = None) ?remote_embedding_timeout_ms
+      ?remote_embedding_num_tries ?(action = Create) ~collection_name document =
+    let body = document |> Yojson.Safe.to_string in
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents"
     in
     let params =
       let open Params in
-      add_if_int "dirty_values" dirty_values
+      add_if_string "dirty_values" (string_of_dirty_values dirty_values)
       @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
       @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
       @ add_if_string "action" (string_of_document_write_action action)
     in
     RequestDescriptor.post ~config ~params ~body path
 
-  type import_document_response = {
-    success : bool;
-    code : int32 option;
-    error : string option;
-    document : string; (* deserialize to JSON value *)
-  }
-  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  module ImportResponse = struct
+    type t = {
+      success : bool;
+      code : int32 option;
+      error : string option;
+      document : string; (* deserialize to JSON value *)
+    }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let import_document_response_of_string s =
-    String.split_on_char '\n' s
-    |> List.map (fun s ->
-           Yojson.Safe.from_string s |> import_document_response_of_yojson)
+    let t_of_string s =
+      String.split_on_char '\n' s
+      |> List.map (fun s -> Yojson.Safe.from_string s |> t_of_yojson)
+  end
 
-  let _import ~config ?(batch_size = None) ?remote_embedding_timeout_ms
-      ?remote_embedding_num_tries ?(action = Create) ~collection_name documents
-      =
+  let import ~config ?(dirty_values = None) ?(batch_size = None)
+      ?remote_embedding_timeout_ms ?remote_embedding_num_tries
+      ?(action = Create) ~collection_name documents =
     let body = String.concat "\n" (List.map Yojson.Safe.to_string documents) in
     let params =
       let open Params in
       [ ("action", [ string_of_document_write_action action ]) ]
+      @ add_if_string "dirty_values" (string_of_dirty_values dirty_values)
       @ add_if_int "batch_size" batch_size
       @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
       @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
@@ -202,19 +205,7 @@ module Document = struct
     in
     RequestDescriptor.post ~config ~params ~body path
 
-  let import_create ~config ~collection_name documents =
-    _import ~config ~collection_name documents ~action:Create
-
-  let import_upsert ~config ~collection_name documents =
-    _import ~config ~collection_name documents ~action:Upsert
-
-  let import_update ~config ~collection_name documents =
-    _import ~config ~collection_name documents ~action:Update
-
-  let import_emplace ~config ~collection_name documents =
-    _import ~config ~collection_name documents ~action:Emplace
-
-  let get ~config collection_name document_id =
+  let get ~config ~collection_name ~document_id =
     let path =
       "/collections/"
       ^ Uri.pct_encode collection_name
@@ -222,22 +213,28 @@ module Document = struct
     in
     RequestDescriptor.get ~config path
 
-  let update ~config collection_name document_id document_patch =
+  let update ~config ?(dirty_values = None) ~collection_name ~document_id
+      document_patch =
     let path =
       "/collections/"
       ^ Uri.pct_encode collection_name
       ^ "/documents/" ^ document_id
     in
-    RequestDescriptor.patch ~config ~body:document_patch path
+    let params =
+      Params.add_if_string "dirty_values" (string_of_dirty_values dirty_values)
+    in
+    let body = document_patch |> Yojson.Safe.to_string in
+    RequestDescriptor.patch ~config ~params ~body path
 
-  let update_by_query ~config ~filter_by collection_name document_patch =
+  let update_by_query ~config ~filter_by ~collection_name document_patch =
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents"
     in
     let params = [ ("filter_by", [ filter_by ]) ] in
-    RequestDescriptor.patch ~config ~params ~body:document_patch path
+    let body = document_patch |> Yojson.Safe.to_string in
+    RequestDescriptor.patch ~config ~params ~body path
 
-  let delete ~config collection_name document_id =
+  let delete ~config ~collection_name ~document_id =
     let path =
       "/collections/"
       ^ Uri.pct_encode collection_name
@@ -245,7 +242,7 @@ module Document = struct
     in
     RequestDescriptor.delete ~config path
 
-  let delete_by_query ~config ~filter_by collection_name =
+  let delete_by_query ~config ~filter_by ~collection_name =
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents"
     in
@@ -253,7 +250,7 @@ module Document = struct
     RequestDescriptor.delete ~config ~params path
 
   let export ~config ?(filter_by = "") ?(include_fields = "")
-      ?(exclude_fields = "") collection_name =
+      ?(exclude_fields = "") ~collection_name () =
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/export"
     in
@@ -465,7 +462,7 @@ module Search = struct
     request_params : Yojson.Safe.t;
   } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let search ~config ?(x_typesense_user_id = "") ~search_params collection_name =
+  let search ~config ?(x_typesense_user_id = "") ~search_params ~collection_name () =
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/search"
     in
@@ -685,7 +682,7 @@ module Search = struct
       searches : single_search list;
     } [@@deriving yojson_of]
 
-  let perform_multi_search ~config ~search_requests ~common_search_params ?(x_typesense_user_id="") collection_name =
+  let perform_multi_search ~config ~search_requests ~common_search_params ?(x_typesense_user_id="") ~collection_name () =
     let body =
       search_requests |> yojson_of_multi_search_request
       |> Yojson.Safe.to_string
@@ -735,7 +732,7 @@ module Analytics = struct
     let path = "/analytics/rules" in
     RequestDescriptor.get ~config path
 
-  let delete_rule ~config rule_name =
+  let delete_rule ~config ~rule_name =
     let path = "/analytics/rules/" ^ Uri.pct_encode rule_name in
     RequestDescriptor.delete ~config path
 end
@@ -760,9 +757,9 @@ module Keys = struct
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let create_key ~config body =
+  let create_key ~config ~create_key =
     let path = "/keys" in
-    let body = body |> yojson_of_create_key |> Yojson.Safe.to_string in
+    let body = create_key |> yojson_of_create_key |> Yojson.Safe.to_string in
     RequestDescriptor.post ~config ~body path
 
   type get_key_response = {
@@ -775,7 +772,7 @@ module Keys = struct
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let get_key ~config key_id =
+  let get_key ~config ~key_id =
     let path = "/keys/" ^ Uri.pct_encode (string_of_int key_id) in
     RequestDescriptor.get ~config path
 
@@ -787,7 +784,7 @@ module Keys = struct
 
   type delete_key_response = { id : int }
 
-  let delete_key ~config key_id =
+  let delete_key ~config ~key_id =
     let path = "/keys/" ^ Uri.pct_encode (string_of_int key_id) in
     RequestDescriptor.delete ~config path
 end
@@ -847,7 +844,7 @@ module Override = struct
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let create ~config ~collection_name ~override_id override =
+  let create ~config ~collection_name ~override_id ~override =
     let path =
       "/collections/"
       ^ Uri.pct_encode collection_name
@@ -897,7 +894,7 @@ module Synonym = struct
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let create ~config ~collection_name ~synonym_id synonyms =
+  let create ~config ~collection_name ~synonym_id ~synonyms =
     let path =
       "/collections/"
       ^ Uri.pct_encode collection_name
