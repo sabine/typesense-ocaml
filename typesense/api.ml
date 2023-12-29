@@ -281,47 +281,56 @@ module Collection = struct
 end
 
 module Document = struct
-  type dirty_values = Coerce_or_reject | Coerce_or_drop | Drop | Reject
+  module DocumentWriteParameters = struct
+    type dirty_values = Coerce_or_reject | Coerce_or_drop | Drop | Reject
 
-  let string_of_dirty_values v =
-    match v with
-    | Some Coerce_or_reject -> "coerce_or_reject"
-    | Some Coerce_or_drop -> "coerce_or_drop"
-    | Some Drop -> "drop"
-    | Some Reject -> "reject"
-    | None -> ""
+    let string_of_dirty_values v =
+      match v with
+      | Some Coerce_or_reject -> "coerce_or_reject"
+      | Some Coerce_or_drop -> "coerce_or_drop"
+      | Some Drop -> "drop"
+      | Some Reject -> "reject"
+      | None -> ""
 
-  type document_write_action = Create | Upsert | Update | Emplace
+    type document_write_action = Create | Upsert | Update | Emplace
 
-  let string_of_document_write_action = function
-    | Create -> "create"
-    | Upsert -> "upsert"
-    | Update -> "update"
-    | Emplace -> "emplace"
+    let string_of_document_write_action = function
+      | Create -> "create"
+      | Upsert -> "upsert"
+      | Update -> "update"
+      | Emplace -> "emplace"
+  end
 
   let add ~config ?(dirty_values = None) ?remote_embedding_timeout_ms
-      ?remote_embedding_num_tries ?(action = Create) ~collection_name document =
+      ?remote_embedding_num_tries ?(action = DocumentWriteParameters.Create)
+      ~collection_name document =
     let body = document |> Yojson.Safe.to_string in
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents"
     in
     let params =
       let open Params in
-      add_if_string "dirty_values" (string_of_dirty_values dirty_values)
+      add_if_string "dirty_values"
+        (DocumentWriteParameters.string_of_dirty_values dirty_values)
       @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
       @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
-      @ add_if_string "action" (string_of_document_write_action action)
+      @ add_if_string "action"
+          (DocumentWriteParameters.string_of_document_write_action action)
     in
     RequestDescriptor.post ~config ~params ~body path
 
   let import ~config ?(dirty_values = None) ?(batch_size = None)
       ?remote_embedding_timeout_ms ?remote_embedding_num_tries
-      ?(action = Create) ~collection_name documents =
+      ?(action = DocumentWriteParameters.Create) ~collection_name documents =
     let body = String.concat "\n" (List.map Yojson.Safe.to_string documents) in
     let params =
       let open Params in
-      [ ("action", [ string_of_document_write_action action ]) ]
-      @ add_if_string "dirty_values" (string_of_dirty_values dirty_values)
+      [
+        ( "action",
+          [ DocumentWriteParameters.string_of_document_write_action action ] );
+      ]
+      @ add_if_string "dirty_values"
+          (DocumentWriteParameters.string_of_dirty_values dirty_values)
       @ add_if_int "batch_size" batch_size
       @ add_if_int "remote_embedding_timeout_ms" remote_embedding_timeout_ms
       @ add_if_int "remote_embedding_num_tries" remote_embedding_num_tries
@@ -361,7 +370,8 @@ module Document = struct
       ^ "/documents/" ^ document_id
     in
     let params =
-      Params.add_if_string "dirty_values" (string_of_dirty_values dirty_values)
+      Params.add_if_string "dirty_values"
+        (DocumentWriteParameters.string_of_dirty_values dirty_values)
     in
     let body = document_patch |> Yojson.Safe.to_string in
     RequestDescriptor.patch ~config ~params ~body path
@@ -686,73 +696,6 @@ module Search = struct
     (* multis-earch params *)
     @ add_if_int "limit_multi_searches" limit_multi_searches
 
-  module FacetCounts = struct
-    type facet_count = { count : int; value : string } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-    type stats = { max : float; min : float; sum : float; total_values: int; avg: float } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-    type facet_counts = {
-      counts: facet_count list;
-      field_name: string;
-      stats: stats;
-    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-    type t = (string * facet_counts) list
-
-    let t_of_yojson v =
-      let decode_kv_pair (k,v) =
-        (k, facet_counts_of_yojson v)
-      in
-      match v with
-    | `Assoc l ->
-      List.map decode_kv_pair l
-    |_ -> raise (Invalid_argument "FacetCounts.y_of_yojson expected an object")
-  end
-
-  type highlight = {
-    field: string;
-    snippet: string;
-  } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
-  module GeoDistanceMeters = struct
-    type t = (string, float) Hashtbl.t
-
-    let t_of_yojson v =
-      match v with
-      | `Assoc l ->
-          let tbl = Hashtbl.create (List.length l) in
-          let decode_kv_pair = function
-            | k, `Float v -> Hashtbl.add tbl k v
-            | _ -> raise (Invalid_argument "expected a float value")
-          in
-          l |> List.iter decode_kv_pair;
-          tbl
-      | _ -> raise (Invalid_argument "GeoDistanceMeters.t_of_yojson expected an object")
-  end
-
-  type search_result_hit = {
-    highlight: Yojson.Safe.t;
-    document : Yojson.Safe.t;
-    text_match: int64;
-    geo_distance_meters: GeoDistanceMeters.t;
-    vector_distance: float;
-  } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
-  type search_grouped_hit = {
-    found: int;
-    group_key : string list;
-    hits: search_result_hit list;
-  } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
-  type search_response = {
-    facet_counts : FacetCounts.t;
-    found : int;
-    search_time_ms : int;
-    out_of : int;
-    search_cutoff: bool;
-    page : int;
-    grouped_hits: search_grouped_hit list;
-    hits : search_result_hit list;
-    request_params : Yojson.Safe.t;
-  } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
   let search ~config ?(x_typesense_user_id = "") ~search_params ~collection_name () =
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/search"
@@ -764,6 +707,75 @@ module Search = struct
       else RequestDescriptor.headers ~config
     in
     RequestDescriptor.get ~config ~params:search_params ~headers path
+
+  module SearchResponse = struct
+    module FacetCounts = struct
+      type facet_count = { count : int; value : string } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+      type stats = {
+        max : float option; [@default None]
+        min : float option; [@default None]
+        sum : float option; [@default None]
+        total_values: int option; [@default None]
+        avg: float option; [@default None]
+      } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+      type facet_count_schema = {
+        counts: facet_count list;
+        field_name: string;
+        stats: stats;
+      } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+      type t = (string * facet_count_schema) list
+      let t_of_yojson v =
+        let decode_kv_pair (k,v) =
+          (k, facet_count_schema_of_yojson v)
+        in
+        match v with
+      | `Assoc l ->
+        List.map decode_kv_pair l
+      |_ -> raise (Invalid_argument "FacetCounts.y_of_yojson expected an object")
+    end
+    type highlight = {
+      field: string;
+      snippet: string;
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+    module GeoDistanceMeters = struct
+      type t = (string, float) Hashtbl.t
+      let t_of_yojson v =
+        match v with
+        | `Assoc l ->
+            let tbl = Hashtbl.create (List.length l) in
+            let decode_kv_pair = function
+              | k, `Float v -> Hashtbl.add tbl k v
+              | _ -> raise (Invalid_argument "expected a float value")
+            in
+            l |> List.iter decode_kv_pair;
+            tbl
+        | _ -> raise (Invalid_argument "GeoDistanceMeters.t_of_yojson expected an object")
+    end
+
+    type search_response_hit = {
+      highlight: Yojson.Safe.t;
+      document : Yojson.Safe.t;
+      text_match: int;
+      geo_distance_meters: GeoDistanceMeters.t;
+      vector_distance: float;
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+    type search_grouped_hit = {
+      found: int;
+      group_key : string list;
+      hits: search_response_hit list;
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+    type t = {
+      facet_counts : FacetCounts.t;
+      found : int;
+      search_time_ms : int;
+      out_of : int;
+      search_cutoff: bool;
+      page : int;
+      grouped_hits: search_grouped_hit list;
+      hits : search_response_hit list;
+      request_params : Yojson.Safe.t;
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
 
   type single_search = {
     collection : string; [@default ""] [@yojson_drop_default ( = )]
@@ -989,6 +1001,13 @@ module Search = struct
       else RequestDescriptor.headers ~config
     in
     RequestDescriptor.post ~config ~params:common_search_params ~body ~headers path
+
+  module MultiSearchResponse = struct
+    type t = {
+      results: SearchResponse.t list;
+      length: int;
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
 end
 
 module Analytics = struct
