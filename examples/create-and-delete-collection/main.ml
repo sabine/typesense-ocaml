@@ -1,13 +1,15 @@
 [@@@warning "-27"]
 
-module Config = struct
+let config =
   let api_key =
     try Sys.getenv "TYPESENSE_API_KEY" with _ -> "{TYPESENSE_API_KEY}"
+  in
+  let url =
+    try Sys.getenv "TYPESENSE_HOST" with _ -> "http://localhost:8108"
+  in
+  Typesense.Api.{ api_key; url }
 
-  let url = try Sys.getenv "TYPESENSE_HOST" with _ -> "http://localhost:8108"
-end
-
-module TypesenseApi = Typesense.Api.Make (Config)
+module TypesenseApi = Typesense.Api
 
 let make_blink_request = function
   | TypesenseApi.RequestDescriptor.Get { host; path; headers; params } ->
@@ -50,12 +52,13 @@ let _run_blink_client_tests () =
   @@
   let* _ = Riot.Logger.start () in
 
-  print_req "create collection" (TypesenseApi.Collection.create example_schema);
+  print_req "create collection"
+    (TypesenseApi.Collection.create ~config example_schema);
 
-  print_req "list collections" (TypesenseApi.Collection.list ());
+  print_req "list collections" (TypesenseApi.Collection.list ~config);
 
   print_req "update collection"
-    (TypesenseApi.Collection.update example_schema.name
+    (TypesenseApi.Collection.update ~config example_schema.name
        Typesense.Schema.(
          update_schema
            [
@@ -64,7 +67,7 @@ let _run_blink_client_tests () =
            ]));
 
   print_req "delete collection"
-    (TypesenseApi.Collection.delete example_schema.name);
+    (TypesenseApi.Collection.delete ~config example_schema.name);
 
   Riot.shutdown () |> ignore;
   Ok ()
@@ -96,17 +99,17 @@ let run_cohttp_lwt_client_tests () =
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: create collection"
-      (TypesenseApi.Collection.create example_schema)
+      (TypesenseApi.Collection.create ~config example_schema)
   in
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: list collections"
-      (TypesenseApi.Collection.list ())
+      (TypesenseApi.Collection.list ~config)
   in
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: update collection"
-      (TypesenseApi.Collection.update example_schema.name
+      (TypesenseApi.Collection.update ~config example_schema.name
          Typesense.Schema.(
            update_schema
              [
@@ -117,7 +120,7 @@ let run_cohttp_lwt_client_tests () =
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: delete collection"
-      (TypesenseApi.Collection.delete example_schema.name)
+      (TypesenseApi.Collection.delete ~config example_schema.name)
   in
   Lwt.return ()
 
