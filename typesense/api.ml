@@ -27,12 +27,6 @@ module Params = struct
 end
 
 module RequestDescriptor = struct
-  let headers ~config =
-    [
-      ("X-TYPESENSE-API-KEY", config.api_key);
-      ("Content-Type", "application/json");
-    ]
-
   type request =
     | Get of {
         host : string;
@@ -69,6 +63,12 @@ module RequestDescriptor = struct
       }
   [@@deriving show]
 
+  let headers ~config =
+    [
+      ("X-TYPESENSE-API-KEY", config.api_key);
+      ("Content-Type", "application/json");
+    ]
+
   let get ~config ?(headers = headers ~config) ?(params = []) path =
     Get { host = config.url; path; headers; params }
 
@@ -85,6 +85,148 @@ module RequestDescriptor = struct
     Put { host = config.url; path; headers; params; body }
 end
 (* TODO: model and enforce all the response types for these endpoints *)
+
+module Schema = struct
+  type field_type =
+    | String
+    | StringArray
+    | Int32
+    | Int32Array
+    | Int64
+    | Int64Array
+    | Float
+    | FloatArray
+    | Bool
+    | BoolArray
+    | Geopoint
+    | GeopointArray
+    | Object
+    | ObjectArray
+    | AutoConvertToString
+    | Auto
+
+  let yojson_of_field_type = function
+    | String -> `String "string"
+    | StringArray -> `String "string[]"
+    | Int32 -> `String "int32"
+    | Int32Array -> `String "int32[]"
+    | Int64 -> `String "int64"
+    | Int64Array -> `String "int64[]"
+    | Float -> `String "float"
+    | FloatArray -> `String "float[]"
+    | Bool -> `String "bool"
+    | BoolArray -> `String "bool[]"
+    | Geopoint -> `String "geopoint"
+    | GeopointArray -> `String "geopoint[]"
+    | Object -> `String "object"
+    | ObjectArray -> `String "object[]"
+    | AutoConvertToString -> `String "string*"
+    | Auto -> `String "auto"
+
+  let field_type_of_yojson = function
+    | `String "string" -> String
+    | `String "string[]" -> StringArray
+    | `String "int32" -> Int32
+    | `String "int32[]" -> Int32Array
+    | `String "int64" -> Int64
+    | `String "int64[]" -> Int64Array
+    | `String "float" -> Float
+    | `String "float[]" -> FloatArray
+    | `String "bool" -> Bool
+    | `String "bool[]" -> BoolArray
+    | `String "geopoint" -> Geopoint
+    | `String "geopoint[]" -> GeopointArray
+    | `String "object" -> Object
+    | `String "object[]" -> ObjectArray
+    | `String "string*" -> AutoConvertToString
+    | `String "auto" -> Auto
+    | _ -> raise (Invalid_argument "failed to decode field_type")
+
+  type model_config = {
+    model_name : string;
+    (* when using your own model *)
+    indexing_prefix : string; [@default ""] [@yojson_drop_default ( = )]
+    query_prefix : string; [@default ""] [@yojson_drop_default ( = )]
+    (* OpenAI AIP model and Google PaLM API model*)
+    api_key : string; [@default ""] [@yojson_drop_default ( = )]
+    (* GCP Vertex AI API model *)
+    access_token : string; [@default ""] [@yojson_drop_default ( = )]
+    refresh_token : string; [@default ""] [@yojson_drop_default ( = )]
+    client_id : string; [@default ""] [@yojson_drop_default ( = )]
+    client_secret : string; [@default ""] [@yojson_drop_default ( = )]
+    project_id : string; [@default ""] [@yojson_drop_default ( = )]
+  }
+  [@@deriving yojson_of]
+
+  type embed_field_info = { from : string list; model_config : model_config }
+  [@@deriving yojson_of]
+
+  type create_field = {
+    name : string;
+    typesense_type : field_type; [@key "type"]
+    optional : bool; [@default false] [@yojson_drop_default ( = )]
+    facet : bool; [@default false] [@yojson_drop_default ( = )]
+    index : bool; [@default true] [@yojson_drop_default ( = )]
+    locale : string; [@default ""] [@yojson_drop_default ( = )]
+    num_dim : int; [@default 0] [@yojson_drop_default ( = )]
+    embed : embed_field_info option; [@default None] [@yojson_drop_default ( = )]
+  }
+  [@@deriving yojson_of]
+
+  let create_field ?(facet = false) ?(optional = false) ?(index = true)
+      ?(locale = "") ?(num_dim = 0) ?embed name typesense_type =
+    { name; typesense_type; facet; optional; index; locale; num_dim; embed }
+
+  type create_schema = {
+    name : string;
+    fields : create_field list;
+    token_separators : string list; [@default []] [@yojson_drop_default ( = )]
+    symbols_to_index : string list; [@default []] [@yojson_drop_default ( = )]
+    default_sorting_field : string; [@default ""] [@yojson_drop_default ( = )]
+  }
+  [@@deriving yojson_of]
+
+  (* updating schema fields *)
+
+  type drop_schema_field = { name : string; drop : bool } [@@deriving yojson_of]
+  type update_schema_field = Drop of string | Add of create_field
+
+  let yojson_of_update_schema_field = function
+    | Drop name -> yojson_of_drop_schema_field { name; drop = true }
+    | Add field -> yojson_of_create_field field
+
+  let schema ?(token_separators = []) ?(symbols_to_index = [])
+      ?(default_sorting_field = "") name fields =
+    { name; fields; token_separators; symbols_to_index; default_sorting_field }
+
+  type update_schema = { fields : update_schema_field list }
+  [@@deriving yojson_of]
+
+  let update_schema fields = { fields }
+
+  (* listing collection *)
+
+  type field = {
+    name : string;
+    typesense_type : field_type; [@key "type"]
+    optional : bool;
+    facet : bool;
+    index : bool;
+    locale : string;
+    sort : bool;
+    infix : bool;
+  }
+  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+
+  type collection = {
+    name : string;
+    fields : field list;
+    token_separators : string list; [@default []]
+    symbols_to_index : string list; [@default []]
+    default_sorting_field : string; [@default ""]
+  }
+  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+end
 
 module Collection = struct
   let create ~config schema =
@@ -139,8 +281,6 @@ module Collection = struct
 end
 
 module Document = struct
-  (* TODO: enforce document type to match schema of the collection *)
-
   type dirty_values = Coerce_or_reject | Coerce_or_drop | Drop | Reject
 
   let string_of_dirty_values v =
@@ -174,20 +314,6 @@ module Document = struct
     in
     RequestDescriptor.post ~config ~params ~body path
 
-  module ImportResponse = struct
-    type t = {
-      success : bool;
-      code : int32 option;
-      error : string option;
-      document : string; (* deserialize to JSON value *)
-    }
-    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
-    let t_of_string s =
-      String.split_on_char '\n' s
-      |> List.map (fun s -> Yojson.Safe.from_string s |> t_of_yojson)
-  end
-
   let import ~config ?(dirty_values = None) ?(batch_size = None)
       ?remote_embedding_timeout_ms ?remote_embedding_num_tries
       ?(action = Create) ~collection_name documents =
@@ -204,6 +330,20 @@ module Document = struct
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents/import"
     in
     RequestDescriptor.post ~config ~params ~body path
+
+  module ImportResponse = struct
+    type t = {
+      success : bool;
+      code : int32 option;
+      error : string option;
+      document : string; (* deserialize to JSON value *)
+    }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+
+    let t_of_string s =
+      String.split_on_char '\n' s
+      |> List.map (fun s -> Yojson.Safe.from_string s |> t_of_yojson)
+  end
 
   let get ~config ~collection_name ~document_id =
     let path =
@@ -269,6 +409,157 @@ module Document = struct
 end
 
 module Search = struct
+  module Filter = struct
+    module StringFilter = struct
+      type t =
+        | Match of { q : string }
+        | ExactMatch of { q : string }
+        | NotEquals of { q : string }
+        | MatchOneOf of { q : string list }
+        | ExactMatchOneOf of { q : string list }
+        | ExactMatchNoneOf of { q : string list }
+
+      let to_string f =
+        match f with
+        | Match { q } -> q
+        | ExactMatch { q } -> "=" ^ q
+        | NotEquals { q } -> "!=" ^ q
+        | MatchOneOf { q } -> "[" ^ String.concat "," q ^ "]"
+        | ExactMatchOneOf { q } -> "=[" ^ String.concat "," q ^ "]"
+        | ExactMatchNoneOf { q } -> "!=[" ^ String.concat "," q ^ "]"
+    end
+
+    module MakeNumberFilter (Number : sig
+      type t
+
+      val to_string : t -> string
+    end) =
+    struct
+      type number_range = { min : Number.t; max : Number.t }
+      type number_value_or_range = Number of Number.t | Range of number_range
+
+      let string_of_number_value_or_range (f : number_value_or_range) =
+        match f with
+        | Number n -> Number.to_string n
+        | Range r ->
+            "[" ^ Number.to_string r.min ^ ".." ^ Number.to_string r.max ^ "]"
+
+      type t =
+        | Match of { q : Number.t }
+        | Less of { q : Number.t }
+        | LessOrEqual of { q : Number.t }
+        | Greater of { q : Number.t }
+        | GreaterOrEqual of { q : Number.t }
+        | MatchOneOf of { q : number_value_or_range list }
+
+      let to_string (f : t) =
+        match f with
+        | Match { q } -> Number.to_string q
+        | Less { q } -> "<" ^ Number.to_string q
+        | LessOrEqual { q } -> "<=" ^ Number.to_string q
+        | Greater { q } -> ">" ^ Number.to_string q
+        | GreaterOrEqual { q } -> ">=" ^ Number.to_string q
+        | MatchOneOf { q } ->
+            "["
+            ^ String.concat "," (List.map string_of_number_value_or_range q)
+            ^ "]"
+    end
+
+    module Int64Filter = MakeNumberFilter (Int64)
+    module Int32Filter = MakeNumberFilter (Int32)
+    module FloatFilter = MakeNumberFilter (Float)
+
+    module GeopointFilter = struct
+      type geopoint = { lat : Float.t; lon : Float.t }
+
+      let string_of_geopoint geopoint =
+        Float.to_string geopoint.lat ^ "," ^ Float.to_string geopoint.lon
+
+      type t =
+        | InRadiusAroundLocationKm of {
+            geopoint : geopoint;
+            distance_in_km : Float.t;
+          }
+        | InRadiusAroundLocationMi of {
+            geopoint : geopoint;
+            distance_in_mi : Float.t;
+          }
+        | InsideGeoPolygon of { geopoints : geopoint list }
+
+      let string_of_t = function
+        | InRadiusAroundLocationKm { geopoint; distance_in_km } ->
+            "("
+            ^ string_of_geopoint geopoint
+            ^ ","
+            ^ Float.to_string distance_in_km
+            ^ " km) "
+        | InRadiusAroundLocationMi { geopoint; distance_in_mi } ->
+            "("
+            ^ string_of_geopoint geopoint
+            ^ ","
+            ^ Float.to_string distance_in_mi
+            ^ " mi) "
+        | InsideGeoPolygon { geopoints } ->
+            "("
+            ^ String.concat "," (List.map string_of_geopoint geopoints)
+            ^ ")"
+    end
+  end
+
+  module SortBy = struct
+    let by_field ?(descending = true) field_name =
+      let order = if descending then "desc" else "asc" in
+      Printf.sprintf "%s:%s" field_name order
+
+    (** Geopoint sorting *)
+
+    type by_geopoint =
+      | RadiusMi of {
+          lat : float;
+          lon : float;
+          exclude_radius_mi : float option;
+          precision_mi : float option;
+        }
+      | RadiusKm of {
+          lat : float;
+          lon : float;
+          exclude_radius_km : float option;
+          precision_km : float option;
+        }
+
+    let by_geopoint ~field_name s =
+      let order = "asc" in
+      match s with
+      | RadiusMi { lat; lon; exclude_radius_mi; precision_mi } -> (
+          match (exclude_radius_mi, precision_mi) with
+          | None, None ->
+              Printf.sprintf "%s(lat: %f, lon: %f):%s" field_name lat lon order
+          | Some e, None ->
+              Printf.sprintf "%s(lat: %f, lon: %f, exclude_radius: %fmi):%s"
+                field_name lat lon e order
+          | None, Some p ->
+              Printf.sprintf "%s(lat: %f, lon: %f, precision: %fmi):%s"
+                field_name lat lon p order
+          | Some e, Some p ->
+              Printf.sprintf
+                "%s(lat: %f, lon: %f, exclude_radius: %fmi, precision: %fmi):%s"
+                field_name lat lon e p order)
+      | RadiusKm { lat; lon; exclude_radius_km; precision_km } -> (
+          match (exclude_radius_km, precision_km) with
+          | None, None ->
+              Printf.sprintf "%s(lat: %f, lon: %f):%s" field_name lat lon order
+          | Some e, None ->
+              Printf.sprintf "%s(lat: %f, lon: %f, exclude_radius: %fkm):%s"
+                field_name lat lon e order
+          | None, Some p ->
+              Printf.sprintf "%s(lat: %f, lon: %f, precision: %fkm):%s"
+                field_name lat lon p order
+          | Some e, Some p ->
+              Printf.sprintf
+                "%s(lat: %f, lon: %f, exclude_radius: %fkm, precision: %fkm):%s"
+                field_name lat lon e p order)
+  end
+
   [@@@ocamlformat "disable"]
 
   let make_search_params
@@ -737,7 +1028,7 @@ module Analytics = struct
     RequestDescriptor.delete ~config path
 end
 
-module Keys = struct
+module Key = struct
   type create_key = {
     actions : string list;
     collections : string list;

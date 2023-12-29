@@ -9,10 +9,8 @@ let config =
   in
   Typesense.Api.{ api_key; url }
 
-module TypesenseApi = Typesense.Api
-
 let make_blink_request = function
-  | TypesenseApi.RequestDescriptor.Get { host; path; headers; params } ->
+  | Typesense.Api.RequestDescriptor.Get { host; path; headers; params } ->
       Blink_client.get ~headers ~params ~host path
   | Post { host; path; headers; params; body } ->
       Blink_client.post ~headers ~params ~host ~body path
@@ -25,7 +23,7 @@ let make_blink_request = function
 
 let print_req ~make_request title r =
   print_endline title;
-  print_endline @@ TypesenseApi.RequestDescriptor.show_request r;
+  print_endline @@ Typesense.Api.RequestDescriptor.show_request r;
   print_endline "";
   let response = make_request r in
   match response with
@@ -33,7 +31,7 @@ let print_req ~make_request title r =
   | Error (`Msg m) -> print_endline m
 
 let example_schema =
-  Typesense.Schema.(
+  Typesense.Api.Schema.(
     schema "companies"
       [
         create_field "company_name" String;
@@ -53,13 +51,13 @@ let _run_blink_client_tests () =
   let* _ = Riot.Logger.start () in
 
   print_req "create collection"
-    (TypesenseApi.Collection.create ~config example_schema);
+    (Typesense.Api.Collection.create ~config example_schema);
 
-  print_req "list collections" (TypesenseApi.Collection.list ~config);
+  print_req "list collections" (Typesense.Api.Collection.list ~config);
 
   print_req "update collection"
-    (TypesenseApi.Collection.update ~config example_schema.name
-       Typesense.Schema.(
+    (Typesense.Api.Collection.update ~config example_schema.name
+       Typesense.Api.Schema.(
          update_schema
            [
              Drop "company_category";
@@ -67,13 +65,13 @@ let _run_blink_client_tests () =
            ]));
 
   print_req "delete collection"
-    (TypesenseApi.Collection.delete ~config example_schema.name);
+    (Typesense.Api.Collection.delete ~config example_schema.name);
 
   Riot.shutdown () |> ignore;
   Ok ()
 
 let make_cohttp_lwt_request = function
-  | TypesenseApi.RequestDescriptor.Get { host; path; headers; params } ->
+  | Typesense.Api.RequestDescriptor.Get { host; path; headers; params } ->
       Cohttp_lwt_client.get ~headers ~params ~host path
   | Post { host; path; headers; params; body } ->
       Cohttp_lwt_client.post ~headers ~params ~host ~body path
@@ -88,7 +86,7 @@ let run_cohttp_lwt_client_tests () =
   let open Lwt.Syntax in
   let print_lwt_req ~make_request title r =
     let* () = Lwt_io.printl title in
-    let* () = Lwt_io.printl @@ TypesenseApi.RequestDescriptor.show_request r in
+    let* () = Lwt_io.printl @@ Typesense.Api.RequestDescriptor.show_request r in
     let* () = Lwt_io.printl "" in
     let* response = make_request r in
     match response with
@@ -99,18 +97,18 @@ let run_cohttp_lwt_client_tests () =
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: create collection"
-      (TypesenseApi.Collection.create ~config example_schema)
+      (Typesense.Api.Collection.create ~config example_schema)
   in
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: list collections"
-      (TypesenseApi.Collection.list ~config)
+      (Typesense.Api.Collection.list ~config)
   in
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: update collection"
-      (TypesenseApi.Collection.update ~config example_schema.name
-         Typesense.Schema.(
+      (Typesense.Api.Collection.update ~config example_schema.name
+         Typesense.Api.Schema.(
            update_schema
              [
                Drop "company_category";
@@ -120,7 +118,7 @@ let run_cohttp_lwt_client_tests () =
 
   let* () =
     print_req "run_cohttp_lwt_client_tests: delete collection"
-      (TypesenseApi.Collection.delete ~config example_schema.name)
+      (Typesense.Api.Collection.delete ~config example_schema.name)
   in
   Lwt.return ()
 
