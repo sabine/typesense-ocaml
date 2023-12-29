@@ -129,7 +129,7 @@ type field = {
   sort : bool;
   infix : bool;
 }
-[@@deriving of_yojson]
+[@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
 type collection = {
   name : string;
@@ -138,4 +138,4 @@ type collection = {
   symbols_to_index : string list; [@default []]
   default_sorting_field : string; [@default ""]
 }
-[@@deriving of_yojson]
+[@@deriving of_yojson] [@@yojson.allow_extra_fields]

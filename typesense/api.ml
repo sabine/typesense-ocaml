@@ -175,7 +175,7 @@ struct
       error : string option;
       document : string; (* deserialize to JSON value *)
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let import_document_response_of_string s =
       String.split_on_char '\n' s
@@ -395,13 +395,13 @@ struct
       @ add_if_int "limit_multi_searches" limit_multi_searches
 
     module FacetCounts = struct
-      type facet_count = { count : int; value : string } [@@deriving of_yojson]
-      type stats = { max : float; min : float; sum : float; total_values: int; avg: float } [@@deriving of_yojson]
+      type facet_count = { count : int; value : string } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+      type stats = { max : float; min : float; sum : float; total_values: int; avg: float } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
       type facet_counts = {
         counts: facet_count list;
         field_name: string;
         stats: stats;
-     } [@@deriving of_yojson]
+     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
       type t = (string * facet_counts) list
 
       let t_of_yojson v =
@@ -417,7 +417,7 @@ struct
     type highlight = {
       field: string;
       snippet: string;
-    } [@@deriving of_yojson]
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     type 'document search_result_hit = {
       (* highlight: object - Highlighted version of the matching document*)
@@ -425,13 +425,13 @@ struct
       text_match: int64;
       (*geo_distance_meters: object - Can be any key-value pair type integer*)
       vector_distance: float;
-    } [@@deriving of_yojson]
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     type 'document search_grouped_hit = {
       found: int;
       group_key : string list;
       hits: 'document search_result_hit list;
-    } [@@deriving of_yojson]
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     type 'document search_response = {
       facet_counts : FacetCounts.t;
@@ -446,7 +446,7 @@ struct
 
 
 
-    } [@@deriving of_yojson]
+    } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let search ?(x_typesense_user_id = "") ~search_params collection_name =
       let path =
@@ -742,7 +742,7 @@ struct
       value : string;
       expires_at : int64;
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let create_key body =
       let path = "/keys" in
@@ -757,7 +757,7 @@ struct
       value_prefix : string;
       expires_at : int64;
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let get_key key_id =
       let path = "/keys/" ^ Uri.pct_encode (string_of_int key_id) in
@@ -782,10 +782,13 @@ struct
       filter_by : string; [@default ""] [@yojson_drop_default ( = )]
       _match : string; [@key "match"] [@default ""] [@yojson_drop_default ( = )]
     }
-    [@@deriving yojson]
+    [@@deriving yojson] [@@yojson.allow_extra_fields]
 
-    type override_include = { id : string; position : int } [@@deriving yojson]
-    type override_exclude = { id : string } [@@deriving yojson]
+    type override_include = { id : string; position : int }
+    [@@deriving yojson] [@@yojson.allow_extra_fields]
+
+    type override_exclude = { id : string }
+    [@@deriving yojson] [@@yojson.allow_extra_fields]
 
     type override = {
       rule : override_rule;
@@ -828,7 +831,7 @@ struct
           [@default None] [@yojson_drop_default ( = )]
       stop_processing : bool option; [@default None] [@yojson_drop_default ( = )]
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let create ~collection_name ~override_id override =
       let path =
@@ -840,7 +843,7 @@ struct
       RequestDescriptor.post ~body path
 
     type list_override_response = { overrides : create_override_response list }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let list ~collection_name =
       let path =
@@ -848,7 +851,8 @@ struct
       in
       RequestDescriptor.get path
 
-    type delete_override_response = { id : string } [@@deriving of_yojson]
+    type delete_override_response = { id : string }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let delete ~collection_name ~override_id =
       let path =
@@ -877,7 +881,7 @@ struct
       symbols_to_index : string list option;
           [@default None] [@yojson_drop_default ( = )]
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let create ~collection_name ~synonym_id synonyms =
       let path =
@@ -899,7 +903,7 @@ struct
       RequestDescriptor.get path
 
     type list_synonyms_response = { synonyms : get_synonyms_response list }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let list ~collection_name =
       let path =
@@ -907,7 +911,8 @@ struct
       in
       RequestDescriptor.get path
 
-    type delete_synonyms_response = { id : string } [@@deriving of_yojson]
+    type delete_synonyms_response = { id : string }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let delete ~collection_name ~synonym_id =
       let path =
@@ -919,7 +924,8 @@ struct
   end
 
   module Cluster_operations = struct
-    type cluster_operation_response = { success : bool } [@@deriving of_yojson]
+    type cluster_operation_response = { success : bool }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let create_snapshot ~snapshot_path =
       let path = "/operations/snapshot" in
@@ -962,7 +968,7 @@ struct
       typesense_memory_resident_bytes : string;
       typesense_memory_retained_bytes : string;
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let get_metrics =
       let path = "/metrics.json" in
@@ -988,13 +994,14 @@ struct
       latency_ms : Stats_table.t;
       requests_per_second : Stats_table.t;
     }
-    [@@deriving of_yojson]
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let get_stats =
       let path = "/stats.json" in
       RequestDescriptor.get path
 
-    type health_response = { ok : bool } [@@deriving of_yojson]
+    type health_response = { ok : bool }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
     let get_health =
       let path = "/health" in
