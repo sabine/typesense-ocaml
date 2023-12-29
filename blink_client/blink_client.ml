@@ -43,7 +43,7 @@ let make ~meth ?(headers = []) ?(params = []) ?(body = None) ~host path =
   in
 
   match status with
-  | `OK -> Ok (Riot.IO.Buffer.to_string body)
+  | `OK -> Ok (`Success (Riot.IO.Buffer.to_string body))
   | _ ->
       Riot.Logger.error (fun f ->
           f "> Got response:\n%s\n%s\n%d\n%!"

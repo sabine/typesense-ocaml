@@ -3,7 +3,7 @@ let read_all_to_string (buf_read : Eio.Buf_read.t) :
   Eio.Buf_read.parse ~initial_size:1 ~max_size:1024 Eio.Buf_read.take_all
     (Eio.Buf_read.as_flow buf_read)
 
-let get ?(headers = []) ?(params = []) ~env ~host path =
+let make ?(headers = []) ?(params = []) ~env ~host path =
   let headers =
     Http.Header.init () |> fun h -> Http.Header.add_list h headers
   in
@@ -15,5 +15,5 @@ let get ?(headers = []) ?(params = []) ~env ~host path =
   match response.status with
   | `OK ->
       let body = read_all_to_string body in
-      Ok body
+      Ok (`Success body)
   | _ -> Error (`Msg "failed to connect")

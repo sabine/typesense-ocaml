@@ -41,6 +41,7 @@ to your Typesense server.")
  ; cohttp_client
  cohttp
  cohttp-eio
+ cohttp-lwt-unix
 
  uri
  ))

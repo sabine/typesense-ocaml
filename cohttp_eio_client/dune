@@ -1,3 +1,3 @@
 (library
- (name cohttp_client)
+ (name cohttp_eio_client)
  (libraries cohttp cohttp-eio uri))

@@ -25,6 +25,7 @@ depends: [
   "httpaf"
   "cohttp"
   "cohttp-eio"
+  "cohttp-lwt-unix"
   "uri"
   "odoc" {with-doc}
 ]

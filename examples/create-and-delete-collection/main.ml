@@ -7,10 +7,10 @@ module Config = struct
   let url = try Sys.getenv "TYPESENSE_HOST" with _ -> "http://localhost:8108"
 end
 
-module Typesense = Typesense_api.Make (Config)
+module TypesenseApi = Typesense.Api.Make (Config)
 
-let make_request = function
-  | Typesense.RequestDescriptor.Get { host; path; headers; params } ->
+let make_blink_request = function
+  | TypesenseApi.RequestDescriptor.Get { host; path; headers; params } ->
       Blink_client.get ~headers ~params ~host path
   | Post { host; path; headers; params; body } ->
       Blink_client.post ~headers ~params ~host ~body path
@@ -21,13 +21,13 @@ let make_request = function
   | Put { host; path; headers; params; body } ->
       Blink_client.put ~headers ~params ~host ~body path
 
-let print_req title r =
+let print_req ~make_request title r =
   print_endline title;
-  print_endline @@ Typesense.RequestDescriptor.show_request r;
+  print_endline @@ TypesenseApi.RequestDescriptor.show_request r;
   print_endline "";
   let response = make_request r in
   match response with
-  | Ok response -> print_endline response
+  | Ok (`Success response) -> print_endline response
   | Error (`Msg m) -> print_endline m
 
 let example_schema =
@@ -41,20 +41,21 @@ let example_schema =
       ]
       ~default_sorting_field:"num_employees")
 
-let ( let* ) = Result.bind
+let _run_blink_client_tests () =
+  let ( let* ) = Result.bind in
+  let print_req = print_req ~make_request:make_blink_request in
 
-let () =
   Riot.run @@ fun () ->
   Result.get_ok
   @@
   let* _ = Riot.Logger.start () in
 
-  print_req "create collection" (Typesense.Collection.create example_schema);
+  print_req "create collection" (TypesenseApi.Collection.create example_schema);
 
-  print_req "list collections" (Typesense.Collection.list ());
+  print_req "list collections" (TypesenseApi.Collection.list ());
 
   print_req "update collection"
-    (Typesense.Collection.update example_schema.name
+    (TypesenseApi.Collection.update example_schema.name
        Typesense.Schema.(
          update_schema
            [
@@ -63,5 +64,62 @@ let () =
            ]));
 
   print_req "delete collection"
-    (Typesense.Collection.delete example_schema.name);
+    (TypesenseApi.Collection.delete example_schema.name);
+
+  Riot.shutdown () |> ignore;
   Ok ()
+
+let make_cohttp_lwt_request = function
+  | TypesenseApi.RequestDescriptor.Get { host; path; headers; params } ->
+      Cohttp_lwt_client.get ~headers ~params ~host path
+  | Post { host; path; headers; params; body } ->
+      Cohttp_lwt_client.post ~headers ~params ~host ~body path
+  | Delete { host; path; headers; params } ->
+      Cohttp_lwt_client.delete ~headers ~params ~host path
+  | Patch { host; path; headers; params; body } ->
+      Cohttp_lwt_client.patch ~headers ~params ~host ~body path
+  | Put { host; path; headers; params; body } ->
+      Cohttp_lwt_client.put ~headers ~params ~host ~body path
+
+let run_cohttp_lwt_client_tests () =
+  let open Lwt.Syntax in
+  let print_lwt_req ~make_request title r =
+    let* () = Lwt_io.printl title in
+    let* () = Lwt_io.printl @@ TypesenseApi.RequestDescriptor.show_request r in
+    let* () = Lwt_io.printl "" in
+    let* response = make_request r in
+    match response with
+    | Ok (`Success response) -> Lwt.return (print_endline response)
+    | Error (`Msg m) -> Lwt.return (print_endline m)
+  in
+  let print_req = print_lwt_req ~make_request:make_cohttp_lwt_request in
+
+  let* () =
+    print_req "run_cohttp_lwt_client_tests: create collection"
+      (TypesenseApi.Collection.create example_schema)
+  in
+
+  let* () =
+    print_req "run_cohttp_lwt_client_tests: list collections"
+      (TypesenseApi.Collection.list ())
+  in
+
+  let* () =
+    print_req "run_cohttp_lwt_client_tests: update collection"
+      (TypesenseApi.Collection.update example_schema.name
+         Typesense.Schema.(
+           update_schema
+             [
+               Drop "company_category";
+               Add (create_field "company_category" StringArray ~facet:true);
+             ]))
+  in
+
+  let* () =
+    print_req "run_cohttp_lwt_client_tests: delete collection"
+      (TypesenseApi.Collection.delete example_schema.name)
+  in
+  Lwt.return ()
+
+let () = Lwt_main.run (run_cohttp_lwt_client_tests ())
+(*run_blink_client_tests ()*)
