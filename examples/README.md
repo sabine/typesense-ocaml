@@ -1,4 +1,8 @@
-To run the examples, you need to provide TYPESENSE_HOST and TYPESENSE_API_KEY environment variables.
+To run the examples, you need to provide TYPESENSE_HOST and TYPESENSE_API_KEY environment variables, e.g.:
+
+```
+TYPESENSE_API_KEY={YOUR_TYPESENSE_API_KEY} TYPESENSE_HOST=http://localhost:8108 opam exec -- dune exec examples/create-and-delete-collection/main.exe
+```
 
 Typesense can be installed locally:
 

@@ -1,6 +1,8 @@
 # typesense-ocaml
 OCaml HTTP client for Typesense
 
+WARNING: this is not complete, and likely very buggy right now!
+
 Client bindings for interfacing with Typesense,
 an open-source, typo-tolerant search engine.
 Abstracts over the HTTP requests to the Typesense server API and

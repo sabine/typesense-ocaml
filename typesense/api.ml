@@ -4,7 +4,6 @@ module Make (Config : sig
 end) =
 struct
   open Ppx_yojson_conv_lib.Yojson_conv
-  module Config = Config
 
   module Params = struct
     let add_if_string name value =
@@ -935,7 +934,7 @@ struct
       let path = "/operations/vote" in
       RequestDescriptor.post path
 
-    let toggle_slow_request_log ~log_slow_requests_time_ms =
+    let toggle_slow_request_log ?(log_slow_requests_time_ms = -1) () =
       let path = "/config" in
       let body =
         `Assoc [ ("log-slow-requests-time-ms", `Int log_slow_requests_time_ms) ]
@@ -1009,4 +1008,6 @@ struct
     | `Conflict
     | `UnprocessableEntity
     | `ServiceUnavailable ]
+
+  module Config = Config
 end
