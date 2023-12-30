@@ -749,15 +749,7 @@ module Search = struct
         field_name: string;
         stats: stats;
       } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-      type t = (string * facet_count_schema) list
-      let t_of_yojson v =
-        let decode_kv_pair (k,v) =
-          (k, facet_count_schema_of_yojson v)
-        in
-        match v with
-      | `Assoc l ->
-        List.map decode_kv_pair l
-      |_ -> raise (Invalid_argument "FacetCounts.y_of_yojson expected an object")
+      type t = facet_count_schema list [@@deriving of_yojson]
     end
     type highlight = {
       field: string;
@@ -782,8 +774,8 @@ module Search = struct
       highlight: Yojson.Safe.t;
       document : Yojson.Safe.t;
       text_match: int;
-      geo_distance_meters: GeoDistanceMeters.t;
-      vector_distance: float;
+      geo_distance_meters: GeoDistanceMeters.t option; [@default None]
+      vector_distance: float option; [@default None]
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
     type search_grouped_hit = {
       found: int;
@@ -797,8 +789,8 @@ module Search = struct
       out_of : int;
       search_cutoff: bool;
       page : int;
-      grouped_hits: search_grouped_hit list;
-      hits : search_response_hit list;
+      grouped_hits: search_grouped_hit list option; [@default None]
+      hits : search_response_hit list; [@default []]
       request_params : Yojson.Safe.t;
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
   end
