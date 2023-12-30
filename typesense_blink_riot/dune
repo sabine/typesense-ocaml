@@ -1,0 +1,4 @@
+(library
+ (name typesense_blink_riot)
+ (public_name typesense-blink-riot)
+ (libraries riot blink uri))

@@ -204,8 +204,6 @@ module Schema = struct
 
   let update_schema fields = { fields }
 
-  (* listing collection *)
-
   type field = {
     name : string;
     typesense_type : field_type; [@key "type"]
@@ -224,6 +222,7 @@ module Schema = struct
     token_separators : string list; [@default []]
     symbols_to_index : string list; [@default []]
     default_sorting_field : string; [@default ""]
+    num_documents : int;
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 end
@@ -232,6 +231,10 @@ module Collection = struct
   let create ~config schema =
     let body = Schema.yojson_of_create_schema schema |> Yojson.Safe.to_string in
     RequestDescriptor.post ~config ~body "/collections"
+
+  module CreateResponse = struct
+    type t = Schema.collection
+  end
 
   let clone ~config existing_collection_name new_collection_name =
     let path = "/collections" in
@@ -245,11 +248,23 @@ module Collection = struct
     let path = "/collections/" ^ Uri.pct_encode collection_name in
     RequestDescriptor.get ~config path
 
+  module GetResponse = struct
+    type t = Schema.collection
+  end
+
   let list ~config = RequestDescriptor.get ~config "/collections"
+
+  module ListResponse = struct
+    type t = Schema.collection list [@@deriving of_yojson]
+  end
 
   let delete ~config collection_name =
     let path = "/collections/" ^ Uri.pct_encode collection_name in
     RequestDescriptor.delete ~config path
+
+  module DeleteResponse = struct
+    type t = Schema.collection
+  end
 
   let update ~config collection_name (update_schema : Schema.update_schema) =
     let path = "/collections/" ^ Uri.pct_encode collection_name in
@@ -319,6 +334,16 @@ module Document = struct
     in
     RequestDescriptor.post ~config ~params ~body path
 
+  module AddResponse = struct
+    type t = {
+      success : bool;
+      document : Yojson.Safe.t option; [@default None]
+      error : string option; [@default None]
+      code : int32 option; [@default None]
+    }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
+
   let import ~config ?(dirty_values = None) ?(batch_size = None)
       ?remote_embedding_timeout_ms ?remote_embedding_num_tries
       ?(action = DocumentWriteParameters.Create) ~collection_name documents =
@@ -341,17 +366,10 @@ module Document = struct
     RequestDescriptor.post ~config ~params ~body path
 
   module ImportResponse = struct
-    type t = {
-      success : bool;
-      code : int32 option;
-      error : string option;
-      document : string; (* deserialize to JSON value *)
-    }
-    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
     let t_of_string s =
       String.split_on_char '\n' s
-      |> List.map (fun s -> Yojson.Safe.from_string s |> t_of_yojson)
+      |> List.map (fun s ->
+             Yojson.Safe.from_string s |> AddResponse.t_of_yojson)
   end
 
   let get ~config ~collection_name ~document_id =
@@ -392,12 +410,20 @@ module Document = struct
     in
     RequestDescriptor.delete ~config path
 
+  module DeleteResponse = struct
+    type t = { num_deleted : int } [@@deriving of_yojson]
+  end
+
   let delete_by_query ~config ~filter_by ~collection_name =
     let path =
       "/collections/" ^ Uri.pct_encode collection_name ^ "/documents"
     in
     let params = [ ("filter_by", [ filter_by ]) ] in
     RequestDescriptor.delete ~config ~params path
+
+  module DeleteByQueryResponse = struct
+    type t = { num_deleted : int } [@@deriving of_yojson]
+  end
 
   let export ~config ?(filter_by = "") ?(include_fields = "")
       ?(exclude_fields = "") ~collection_name () =

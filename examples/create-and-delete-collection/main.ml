@@ -11,15 +11,15 @@ let config =
 
 let make_blink_request = function
   | Typesense.Api.RequestDescriptor.Get { host; path; headers; params } ->
-      Blink_client.get ~headers ~params ~host path
+      Typesense_blink_riot.get ~headers ~params ~host path
   | Post { host; path; headers; params; body } ->
-      Blink_client.post ~headers ~params ~host ~body path
+      Typesense_blink_riot.post ~headers ~params ~host ~body path
   | Delete { host; path; headers; params } ->
-      Blink_client.delete ~headers ~params ~host path
+      Typesense_blink_riot.delete ~headers ~params ~host path
   | Patch { host; path; headers; params; body } ->
-      Blink_client.patch ~headers ~params ~host ~body path
+      Typesense_blink_riot.patch ~headers ~params ~host ~body path
   | Put { host; path; headers; params; body } ->
-      Blink_client.put ~headers ~params ~host ~body path
+      Typesense_blink_riot.put ~headers ~params ~host ~body path
 
 let print_req ~make_request title r =
   print_endline title;
@@ -72,15 +72,15 @@ let _run_blink_client_tests () =
 
 let make_cohttp_lwt_request = function
   | Typesense.Api.RequestDescriptor.Get { host; path; headers; params } ->
-      Cohttp_lwt_client.get ~headers ~params ~host path
+      Typesense_cohttp_lwt_unix.get ~headers ~params ~host path
   | Post { host; path; headers; params; body } ->
-      Cohttp_lwt_client.post ~headers ~params ~host ~body path
+      Typesense_cohttp_lwt_unix.post ~headers ~params ~host ~body path
   | Delete { host; path; headers; params } ->
-      Cohttp_lwt_client.delete ~headers ~params ~host path
+      Typesense_cohttp_lwt_unix.delete ~headers ~params ~host path
   | Patch { host; path; headers; params; body } ->
-      Cohttp_lwt_client.patch ~headers ~params ~host ~body path
+      Typesense_cohttp_lwt_unix.patch ~headers ~params ~host ~body path
   | Put { host; path; headers; params; body } ->
-      Cohttp_lwt_client.put ~headers ~params ~host ~body path
+      Typesense_cohttp_lwt_unix.put ~headers ~params ~host ~body path
 
 let run_cohttp_lwt_client_tests () =
   let open Lwt.Syntax in

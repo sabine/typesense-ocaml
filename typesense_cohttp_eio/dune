@@ -1,0 +1,4 @@
+(library
+ (name typesense_cohttp_eio)
+ (public_name typesense-cohttp-eio)
+ (libraries cohttp cohttp-eio uri))
