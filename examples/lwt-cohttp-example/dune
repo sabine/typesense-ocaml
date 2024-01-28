@@ -1,0 +1,3 @@
+(executable
+ (name main)
+ (libraries typesense cohttp cohttp-lwt-unix uri))

@@ -223,6 +223,7 @@ module Schema = struct
     symbols_to_index : string list; [@default []]
     default_sorting_field : string; [@default ""]
     num_documents : int;
+    created_at : int64;
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 end
@@ -244,11 +245,11 @@ module Collection = struct
     in
     RequestDescriptor.post ~config ~params ~body path
 
-  let get ~config collection_name =
+  let retrieve ~config collection_name =
     let path = "/collections/" ^ Uri.pct_encode collection_name in
     RequestDescriptor.get ~config path
 
-  module GetResponse = struct
+  module RetrieveResponse = struct
     type t = Schema.collection
   end
 
@@ -273,25 +274,49 @@ module Collection = struct
     in
     RequestDescriptor.patch ~config ~body path
 
+  module UpdateResponse = struct
+    type t = Schema.collection
+  end
+
   module Alias = struct
+    type collection_alias = { collection_name : string; name : string }
+    [@@deriving yojson_of]
+
+    type collection_alias_schema = { collection_name : string }
+    [@@deriving of_yojson]
+
     let create_or_update ~config collection_name alias =
       let path = "/aliases/" ^ Uri.pct_encode collection_name in
-      let body =
-        Yojson.Safe.to_string (`Assoc [ ("collection_name", `String alias) ])
-      in
+      let body = yojson_of_collection_alias alias |> Yojson.Safe.to_string in
       RequestDescriptor.put ~config ~body path
+
+    module CreateOrUpdateResponse = struct
+      type t = collection_alias
+    end
 
     let get ~config alias =
       let path = "/aliases/" ^ Uri.pct_encode alias in
       RequestDescriptor.get ~config path
 
+    module GetResponse = struct
+      type t = collection_alias
+    end
+
     let list ~config =
       let path = "/aliases" in
       RequestDescriptor.get ~config path
 
+    module ListResponse = struct
+      type t = collection_alias list
+    end
+
     let delete ~config alias =
       let path = "/aliases/" ^ Uri.pct_encode alias in
       RequestDescriptor.delete ~config path
+
+    module DeleteResponse = struct
+      type t = collection_alias
+    end
   end
 end
 
@@ -393,6 +418,10 @@ module Document = struct
     in
     let body = document_patch |> Yojson.Safe.to_string in
     RequestDescriptor.patch ~config ~params ~body path
+
+  module UpdateResponse = struct
+    type t = { num_updated : int } [@@deriving of_yojson]
+  end
 
   let update_by_query ~config ~filter_by ~collection_name document_patch =
     let path =
@@ -773,7 +802,7 @@ module Search = struct
     type search_response_hit = {
       highlight: Yojson.Safe.t;
       document : Yojson.Safe.t;
-      text_match: int;
+      text_match: int option; [@default None]
       geo_distance_meters: GeoDistanceMeters.t option; [@default None]
       vector_distance: float option; [@default None]
     } [@@deriving of_yojson] [@@yojson.allow_extra_fields]
@@ -1151,7 +1180,16 @@ module Override = struct
   }
   [@@deriving yojson_of]
 
-  type create_override_response = {
+  let create ~config ~collection_name ~override_id ~override =
+    let path =
+      "/collections/"
+      ^ Uri.pct_encode collection_name
+      ^ "/overrides/" ^ Uri.pct_encode override_id
+    in
+    let body = override |> yojson_of_override |> Yojson.Safe.to_string in
+    RequestDescriptor.post ~config ~body path
+
+  type resoponse_override = {
     id : string;
     rule : override_rule;
     includes : override_include list option;
@@ -1172,17 +1210,9 @@ module Override = struct
   }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
 
-  let create ~config ~collection_name ~override_id ~override =
-    let path =
-      "/collections/"
-      ^ Uri.pct_encode collection_name
-      ^ "/overrides/" ^ Uri.pct_encode override_id
-    in
-    let body = override |> yojson_of_override |> Yojson.Safe.to_string in
-    RequestDescriptor.post ~config ~body path
-
-  type list_override_response = { overrides : create_override_response list }
-  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  module CreateResponse = struct
+    type t = resoponse_override
+  end
 
   let list ~config ~collection_name =
     let path =
@@ -1190,8 +1220,10 @@ module Override = struct
     in
     RequestDescriptor.get ~config path
 
-  type delete_override_response = { id : string }
-  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  module ListResponse = struct
+    type t = { overrides : resoponse_override list }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
 
   let delete ~config ~collection_name ~override_id =
     let path =
@@ -1200,6 +1232,11 @@ module Override = struct
       ^ "/overrides/" ^ Uri.pct_encode override_id
     in
     RequestDescriptor.delete ~config path
+
+  module DeleteResponse = struct
+    type t = { id : string }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
 end
 
 module Synonym = struct
@@ -1212,16 +1249,6 @@ module Synonym = struct
   }
   [@@deriving yojson_of]
 
-  type create_synonyms_response = {
-    id : string;
-    synonyms : string list;
-    root : string option; [@default None] [@yojson_drop_default ( = )]
-    locale : string option; [@default None] [@yojson_drop_default ( = )]
-    symbols_to_index : string list option;
-        [@default None] [@yojson_drop_default ( = )]
-  }
-  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
-
   let create ~config ~collection_name ~synonym_id ~synonyms =
     let path =
       "/collections/"
@@ -1231,7 +1258,19 @@ module Synonym = struct
     let body = synonyms |> yojson_of_synonyms |> Yojson.Safe.to_string in
     RequestDescriptor.post ~config ~body path
 
-  type get_synonyms_response = create_synonyms_response [@@deriving of_yojson]
+  type response_synonyms = {
+    id : string;
+    synonyms : string list;
+    root : string option; [@default None] [@yojson_drop_default ( = )]
+    locale : string option; [@default None] [@yojson_drop_default ( = )]
+    symbols_to_index : string list option;
+        [@default None] [@yojson_drop_default ( = )]
+  }
+  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+
+  module CreateResponse = struct
+    type t = response_synonyms
+  end
 
   let get ~config ~collection_name ~synonym_id =
     let path =
@@ -1241,15 +1280,18 @@ module Synonym = struct
     in
     RequestDescriptor.get ~config path
 
-  type list_synonyms_response = { synonyms : get_synonyms_response list }
-  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  module GetResponse = struct
+    type t = response_synonyms [@@deriving of_yojson]
+  end
 
   let list ~config ~collection_name =
     let path = "/collections/" ^ Uri.pct_encode collection_name ^ "/synonyms" in
     RequestDescriptor.get ~config path
 
-  type delete_synonyms_response = { id : string }
-  [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  module ListResponse = struct
+    type t = { synonyms : response_synonyms list }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
 
   let delete ~config ~collection_name ~synonym_id =
     let path =
@@ -1258,11 +1300,17 @@ module Synonym = struct
       ^ "/synonyms/" ^ Uri.pct_encode synonym_id
     in
     RequestDescriptor.delete ~config path
+
+  module DeleteResponse = struct
+    type t = { id : string }
+    [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  end
 end
 
 module Cluster_operations = struct
   type cluster_operation_response = { success : bool }
   [@@deriving of_yojson] [@@yojson.allow_extra_fields]
+  (** All cluster operations return this response *)
 
   let create_snapshot ~config ~snapshot_path =
     let path = "/operations/snapshot" in

@@ -1,4 +1,0 @@
-(library
- (name typesense_cohttp_lwt_unix)
- (public_name typesense-cohttp-lwt-unix)
- (libraries cohttp cohttp-lwt-unix uri))

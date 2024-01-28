@@ -1,3 +1,0 @@
-(executable
- (name main)
- (libraries typesense_blink_riot typesense_cohttp_lwt_unix typesense))
